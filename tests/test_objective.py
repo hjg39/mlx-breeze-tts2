@@ -1,4 +1,6 @@
 import json
+import subprocess
+from pathlib import Path
 
 import pytest
 
@@ -9,6 +11,7 @@ from mlx_breeze_tts.objective import (
     objective_template,
     reference_leakage_similarity,
 )
+from mlx_breeze_tts.objective_runner import evaluate_objective_metrics
 
 
 def test_text_metrics_strip_events_and_match_skill_leakage_semantics():
@@ -96,3 +99,111 @@ def test_missing_or_invalid_metrics_fail_closed(tmp_path):
     validation = json.loads(output.read_text())["validation"]
     assert validation["objective_metrics"] == "partial"
     assert validation["clone_cosine_min"] is None
+
+
+def test_evaluator_fills_metrics_and_records_provenance(tmp_path):
+    audio = tmp_path / "clone.wav"
+    reference = tmp_path / "reference.wav"
+    audio.write_bytes(b"generated-audio")
+    reference.write_bytes(b"reference-audio")
+    model = tmp_path / "whisper-snapshot"
+    model.mkdir()
+    (model / "weights.safetensors").write_bytes(b"whisper-weights")
+    executable = tmp_path / "mlx_whisper"
+    executable.write_text("#!/bin/sh\n")
+    executable.chmod(0o755)
+    python = tmp_path / "python"
+    python.write_text("#!/bin/sh\n")
+    python.chmod(0o755)
+    metrics = tmp_path / "metrics.json"
+    metrics.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "rows": [
+                    {
+                        "capability": "voice_clone_en",
+                        "audio": str(audio),
+                        "reference_audio": str(reference),
+                        "expected_text": "Target sentence.",
+                    }
+                ],
+            }
+        )
+    )
+
+    def fake_run(command, **_kwargs):
+        if "--output-dir" in command:
+            output = command[command.index("--output-dir") + 1]
+            Path(output, "result.json").write_text(json.dumps({"text": "Target sentence"}))
+            return subprocess.CompletedProcess(command, 0, "", "")
+        payload = {
+            "cosine": 0.8,
+            "p10_cosine": 0.7,
+            "backend": "speechbrain_ecapa_voxceleb",
+            "model_id": "speechbrain/spkrec-ecapa-voxceleb",
+            "model_artifact_sha256": "a" * 64,
+            "device": "cpu",
+            "generated_segments": 2,
+            "reference_segments": 2,
+            "reference_consistency": 0.9,
+        }
+        return subprocess.CompletedProcess(command, 0, json.dumps(payload), "")
+
+    output, complete = evaluate_objective_metrics(
+        metrics,
+        tmp_path / "evaluated.json",
+        whisper_executable=executable,
+        whisper_model=model,
+        speaker_python=python,
+        run=fake_run,
+    )
+    document = json.loads(output.read_text())
+    row = document["rows"][0]
+    assert complete
+    assert row["asr_text"] == "Target sentence"
+    assert row["speaker_cosine"] == 0.8
+    assert len(row["audio_sha256"]) == 64
+    assert document["evaluation"]["status"] == "complete"
+    assert document["evaluation"]["asr_model_revision"] == "whisper-snapshot"
+
+
+def test_evaluator_retains_failures_and_fails_closed(tmp_path):
+    audio = tmp_path / "design.wav"
+    audio.write_bytes(b"audio")
+    model = tmp_path / "snapshot"
+    model.mkdir()
+    (model / "weights.safetensors").write_bytes(b"weights")
+    executable = tmp_path / "mlx_whisper"
+    executable.write_text("#!/bin/sh\n")
+    executable.chmod(0o755)
+    python = tmp_path / "python"
+    python.write_text("#!/bin/sh\n")
+    python.chmod(0o755)
+    metrics = tmp_path / "metrics.json"
+    metrics.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "rows": [
+                    {"capability": "voice_design_en", "audio": str(audio)}
+                ],
+            }
+        )
+    )
+
+    def failing_run(command, **_kwargs):
+        return subprocess.CompletedProcess(command, 2, "", "decoder failed")
+
+    output, complete = evaluate_objective_metrics(
+        metrics,
+        tmp_path / "evaluated.json",
+        whisper_executable=executable,
+        whisper_model=model,
+        speaker_python=python,
+        run=failing_run,
+    )
+    document = json.loads(output.read_text())
+    assert not complete
+    assert document["evaluation"]["status"] == "partial"
+    assert document["evaluation"]["failures"][0]["metric"] == "asr"

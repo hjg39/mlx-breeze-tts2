@@ -154,17 +154,23 @@ removed. Automated generation does not mark vocal events audible; reviewers
 must record those eight verdicts after listening to `index.html`. Use its
 **Export manual_reviews.json** button.
 
-Generate the objective-metric worksheet, fill `asr_text` plus ECAPA
-`speaker_cosine`/`speaker_p10`, and merge it without overwriting the raw report.
-CER and reference leakage are computed deterministically during the merge:
+Generate the objective-metric worksheet, fill it automatically with the cached
+MLX Whisper large-v3-turbo and segment-aware SpeechBrain ECAPA backend, then
+merge it without overwriting the raw report. The evaluator records audio/model
+hashes, resolved Whisper revision, actual speaker device, and returns non-zero
+when any required metric is missing. CER and reference leakage are computed
+deterministically during the merge:
 
 ```bash
 mlx-breeze-tts2 objective-template \
   reports/full_matrix/4bit/summary.json \
   --output reports/full_matrix/4bit/objective_metrics.json
+mlx-breeze-tts2 evaluate-objective-metrics \
+  reports/full_matrix/4bit/objective_metrics.json \
+  --output reports/full_matrix/4bit/objective_metrics.evaluated.json
 mlx-breeze-tts2 apply-objective-metrics \
   reports/full_matrix/4bit/summary.json \
-  reports/full_matrix/4bit/objective_metrics.json \
+  reports/full_matrix/4bit/objective_metrics.evaluated.json \
   --output reports/full_matrix/4bit/summary.metrics.json
 ```
 

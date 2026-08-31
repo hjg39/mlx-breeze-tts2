@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "status": "pass_on_precursor_evidence",
+  "purpose": "Validate the standalone segment-aware ECAPA worker against the existing precursor clone evidence.",
+  "backend": "speechbrain_ecapa_voxceleb",
+  "model_id": "speechbrain/spkrec-ecapa-voxceleb",
+  "model_artifact_sha256": "0575cb64845e6b9a10db9bcb74d5ac32b326b8dc90352671d345e2ee3d0126a2",
+  "device": "cpu",
+  "generated_audio": "voice_clone_en_000.wav",
+  "generated_audio_sha256": "404139a026aa5f10787be77526c268c9b0dae00567925cb03ab56c60da641099",
+  "reference_audio": "/Users/vanch/tts-test-project/data/reference_audio/dots_seedtts_en_ref.wav",
+  "reference_audio_sha256": "427281c58d8a8fc3e928154c5165e16a169b0678fd98162dd95b4f5f3e13e57d",
+  "cosine": 0.775864372253418,
+  "median_cosine": 0.7765774726867676,
+  "p10_cosine": 0.7745400428771972,
+  "reference_consistency": 0.9408254981040955,
+  "generated_segments": 3,
+  "reference_segments": 3,
+  "threshold": 0.25,
+  "command": "/Users/vanch/.codex/envs/bluestone-mlx-audio/bin/python src/mlx_breeze_tts/speaker_worker.py --generated reports/baseline/voice_clone_en_000.wav --reference /Users/vanch/tts-test-project/data/reference_audio/dots_seedtts_en_ref.wav --device cpu",
+  "scope": "This validates the evaluation backend only; it is not standalone MLX generation evidence."
+}

@@ -91,6 +91,17 @@ def _parser() -> argparse.ArgumentParser:
     objective_apply.add_argument("metrics", type=Path)
     objective_apply.add_argument("--output", type=Path, required=True)
 
+    objective_evaluate = sub.add_parser("evaluate-objective-metrics")
+    objective_evaluate.add_argument("metrics", type=Path)
+    objective_evaluate.add_argument("--output", type=Path, required=True)
+    objective_evaluate.add_argument("--whisper-executable", type=Path)
+    objective_evaluate.add_argument("--whisper-model", type=Path)
+    objective_evaluate.add_argument("--speaker-python", type=Path)
+    objective_evaluate.add_argument(
+        "--speaker-device", choices=["auto", "cpu", "mps"], default="auto"
+    )
+    objective_evaluate.add_argument("--timeout", type=int, default=600)
+
     render = sub.add_parser("render-report")
     render.add_argument("summary", type=Path)
     render.add_argument("--output", type=Path, required=True)
@@ -227,6 +238,20 @@ def main(argv=None) -> int:
         output = apply_objective_metrics(args.summary, args.metrics, args.output)
         print(output)
         return 0
+    if args.command == "evaluate-objective-metrics":
+        from .objective_runner import evaluate_objective_metrics
+
+        output, complete = evaluate_objective_metrics(
+            args.metrics,
+            args.output,
+            whisper_executable=args.whisper_executable,
+            whisper_model=args.whisper_model,
+            speaker_python=args.speaker_python,
+            speaker_device=args.speaker_device,
+            timeout=args.timeout,
+        )
+        print(output)
+        return 0 if complete else 1
     if args.command == "render-report":
         from .reporting import render_report_bundle
 

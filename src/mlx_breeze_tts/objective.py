@@ -70,7 +70,12 @@ def objective_template(summary_path: str | Path, output_path: str | Path) -> Pat
                 "capability": sample.get("capability"),
                 "audio": str((summary_path.parent / audio).resolve()) if audio else "",
                 "expected_text": sample.get("expected_text") or sample.get("text", ""),
-                "reference_audio": sample.get("ref_audio"),
+                "reference_audio": (
+                    str((summary_path.parent / sample["ref_audio"]).resolve())
+                    if sample.get("ref_audio")
+                    and not Path(str(sample["ref_audio"])).expanduser().is_absolute()
+                    else sample.get("ref_audio")
+                ),
                 "reference_text": sample.get("ref_text"),
                 "asr_text": None,
                 "speaker_cosine": None,
@@ -114,6 +119,8 @@ def apply_objective_metrics(
         raise ValueError("Metrics document must use schema_version 1 and rows[]")
 
     samples = {sample.get("capability"): sample for sample in summary.get("samples", [])}
+    if document.get("evaluation"):
+        summary["objective_provenance"] = document["evaluation"]
     seen: set[str] = set()
     for row in rows:
         capability = row.get("capability")

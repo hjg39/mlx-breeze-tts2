@@ -33,11 +33,12 @@ and `THIRD_PARTY_NOTICES.md`.
 | 4-bit voice design / clone / direction / ZH event / streaming on M3 Max | pass on precursor implementation | `reports/baseline/summary.json` and WAVs |
 | ASR content fidelity in five baseline cases | pass | Whisper large-v3-turbo, zero failures |
 | Clone speaker similarity | pass | ECAPA cosine `0.775864`, threshold `0.25` |
-| Metal-independent standalone tests | pass | 80 passed, 0 failed |
+| Metal-independent standalone tests | pass | 82 passed, 0 failed |
 | Approved acceptance-matrix coverage | pass | 23 deterministic cases; complete required capability/event set; fake-runtime report and real FastAPI contract tests |
 | Manual listening evidence workflow | pass | HTML JSON export plus validated, non-destructive CLI merge tests |
 | EN/ZH evaluation references | pass for local internal evaluation | `reports/full_matrix/input_manifest.json` and `input_validation.json`; files exist, mono 24 kHz PCM16, exact registry transcripts and SHA-256 verified |
 | Objective metric integration | pass | validated ASR/ECAPA worksheet merge; event-aware CER, skill-compatible leakage similarity, min cosine/P10 aggregation, missing values fail closed |
+| Automated objective backend | pass on precursor evidence | `evaluate-objective-metrics` records Whisper snapshot/artifact hashes and actual ECAPA device; `reports/baseline/objective_backend_check.json` reproduces cosine/P10 `0.775864`/`0.774540` with the standalone worker |
 | Waveform/performance completion gates | pass | benchmark records load/RTF/TTFA/memory plus non-finite, clipping, repeated-tail, and stream-boundary diagnostics; verifier fails closed on missing evidence |
 | PyTorch parity evidence workflow | pass; real comparison pending | paired revision/case snapshots, exact and tolerance comparisons, input/evidence hashes, non-destructive merge, and independent verifier checks |
 | Revision propagation and report identity | pass | HF snapshot revisions are resolved from paths; BF16→8/4-bit conversions inherit the original upstream identity; completion verifier rejects mutable/missing revisions |
@@ -60,8 +61,8 @@ artifact and exact command/revision used.
 - The execution sandbox reports `No Metal device available`; this prevents a
   fresh standalone model load even though the earlier precursor run used the
   same M3 Max successfully.
-- The data volume currently has about 12 GiB free. A normal duplicate BF16
-  conversion remains too close to the disk limit, so `link-bf16` now creates a
+- The data volume currently has about 19 GiB free after the user released
+  space. `link-bf16` still avoids an unnecessary duplicate by creating a
   same-volume hard-linked candidate without duplicating safetensors blocks.
 - Browser security denied the official Hugging Face download, and the command
   sandbox currently cannot resolve Hugging Face/PyPI hosts. The pinned local
