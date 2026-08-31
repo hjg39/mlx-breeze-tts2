@@ -55,12 +55,23 @@ def test_generate_cli_accepts_upstream_positional_model_and_local_option():
     assert option.stream is False
 
 
+def test_serve_cli_accepts_upstream_positional_model_and_port_default():
+    positional = _parser().parse_args(["serve", "org/model"])
+    option = _parser().parse_args(["serve", "--model", "local/model"])
+    assert positional.model_pos == "org/model"
+    assert positional.port == 7860
+    assert option.model_option == "local/model"
+
+
 def test_http_health_and_pcm_contract():
     from fastapi.testclient import TestClient
 
     class FakeModel:
         def generate(self, **kwargs):
             assert kwargs["text"] == "hello"
+            assert kwargs["instruct"] == "Speak clearly and naturally."
+            assert kwargs["cfg_scale"] == 1.0
+            assert kwargs["seed"] == 42
             assert kwargs["stream"] is True
             yield SimpleNamespace(audio=np.array([0.0, 0.5], dtype=np.float32))
             yield SimpleNamespace(audio=np.array([-0.5], dtype=np.float32))

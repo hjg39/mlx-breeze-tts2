@@ -60,17 +60,19 @@ def create_app(model=None, model_id: str = DEFAULT_MODEL):
     @app.post("/v1/audio/speech")
     async def speech(
         text: str = Form(...),
-        instruction: str | None = Form(None),
-        cfg_scale: float | None = Form(None),
+        instruction: str = Form("Speak clearly and naturally."),
+        cfg_scale: float = Form(1.0),
         ref_audio: UploadFile | None = File(None),
-        ref_text: str | None = Form(None),
-        seed: int | None = Form(None),
+        ref_text: str = Form(""),
+        seed: int = Form(42),
     ):
-        if bool(ref_audio) != bool(ref_text):
+        ref_text = ref_text.strip()
+        has_reference = ref_audio is not None and bool(ref_audio.filename)
+        if has_reference != bool(ref_text):
             raise HTTPException(400, "ref_audio and ref_text must be provided together")
         if not text.strip():
             raise HTTPException(400, "text must be non-empty")
-        if cfg_scale is not None and (not np.isfinite(cfg_scale) or cfg_scale <= 0):
+        if not np.isfinite(cfg_scale) or cfg_scale <= 0:
             raise HTTPException(400, "cfg_scale must be finite and positive")
         if state["model"] is None:
             raise HTTPException(503, "model is not loaded")
@@ -79,7 +81,8 @@ def create_app(model=None, model_id: str = DEFAULT_MODEL):
         temp_path = None
         generator = None
         try:
-            if ref_audio is not None:
+            if has_reference:
+                assert ref_audio is not None
                 suffix = Path(ref_audio.filename or "reference.wav").suffix or ".wav"
                 upload = await ref_audio.read()
                 if not upload:
@@ -91,10 +94,10 @@ def create_app(model=None, model_id: str = DEFAULT_MODEL):
                 generator = state["model"].generate(
                     text=text,
                     instruct=instruction,
-                    cfg_scale=1.0 if cfg_scale is None else cfg_scale,
+                    cfg_scale=cfg_scale,
                     ref_audio=temp_path,
                     ref_text=ref_text,
-                    seed=42 if seed is None else seed,
+                    seed=seed,
                     max_tokens=1500,
                     stream=True,
                 )

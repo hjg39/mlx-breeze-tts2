@@ -91,9 +91,10 @@ def _parser() -> argparse.ArgumentParser:
     render.add_argument("--output", type=Path, required=True)
 
     serve = sub.add_parser("serve")
-    serve.add_argument("--model", default=DEFAULT_MODEL)
+    serve.add_argument("model_pos", nargs="?", help="model path or Hugging Face id")
+    serve.add_argument("--model", dest="model_option")
     serve.add_argument("--host", default="127.0.0.1")
-    serve.add_argument("--port", type=int, default=8000)
+    serve.add_argument("--port", type=int, default=7860)
     return parser
 
 
@@ -139,7 +140,8 @@ def main(argv=None) -> int:
 
         from .server import create_app
 
-        uvicorn.run(create_app(model_id=args.model), host=args.host, port=args.port)
+        model_id = args.model_option or args.model_pos or DEFAULT_MODEL
+        uvicorn.run(create_app(model_id=model_id), host=args.host, port=args.port)
         return 0
     if args.command == "benchmark":
         from .benchmark import run_benchmark
