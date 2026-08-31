@@ -175,8 +175,10 @@ mlx-breeze-tts2 benchmark \
 
 Missing reference pairs are retained as `missing_input` cases, never silently
 removed. Automated generation does not mark vocal events audible; reviewers
-must record those eight verdicts after listening to `index.html`. Use its
-**Export manual_reviews.json** button.
+must record those eight verdicts. Use the focused `events.html` page and its
+**Export manual_reviews.json** button; it contains only the required events and
+downloads a precision-labelled file. `index.html` remains the complete 23-case
+inspection page.
 
 Generate the objective-metric worksheet, fill it automatically with the cached
 MLX Whisper large-v3-turbo and segment-aware SpeechBrain ECAPA backend, then
@@ -228,7 +230,7 @@ mlx-breeze-tts2 validate-inputs reports/full_matrix/input_manifest.json \
 ```
 
 For the checked-in `release-v2` bundle, export one review from each BF16,
-8-bit, and 4-bit listening page, then run the fail-closed finalizer. It copies
+8-bit, and 4-bit `events.html` page, then run the fail-closed finalizer. It copies
 the original review documents into their variant directories, records their
 SHA-256 hashes, performs both quantization selections, renders final reports,
 and runs the independent bundle verifier:

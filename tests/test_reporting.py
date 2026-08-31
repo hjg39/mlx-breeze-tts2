@@ -25,7 +25,20 @@ def _report():
                 "status": "audio_generated",
                 "asr": "pending",
                 "speaker_similarity": "not_applicable",
-            }
+            },
+            {
+                "capability": "event_en_laugh",
+                "text": "(laugh) Hello.",
+                "instruct": None,
+                "audio": "event_en_laugh.wav",
+                "duration_s": 1.0,
+                "elapsed_s": 1.0,
+                "rtf": 1.0,
+                "clipping_fraction": 0.0,
+                "peak_dbfs": -2.0,
+                "rms_dbfs": -20.0,
+                "status": "audio_generated",
+            },
         ],
     }
 
@@ -56,3 +69,7 @@ def test_report_bundle_writes_markdown_and_listening_pages(tmp_path):
     assert (output / "report.md").is_file()
     assert (output / "index.html").is_file()
     assert (output / "report.html").read_text() == (output / "index.html").read_text()
+    event_page = (output / "events.html").read_text()
+    assert "event_en_laugh" in event_page
+    assert "voice_design_en" not in event_page
+    assert 'link.download="manual_reviews-' in event_page

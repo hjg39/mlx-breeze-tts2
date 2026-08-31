@@ -26,7 +26,8 @@ release-complete claim.
 
 ## Remaining completion action
 
-Export `manual_reviews.json` from each BF16, 8-bit, and 4-bit listening page,
+Export the precision-labelled review JSON from each BF16, 8-bit, and 4-bit
+`events.html` page,
 then run `scripts/finalize_release_evidence.zsh` with those three immutable
 review documents. The finalizer binds their hashes and model revision, performs
 the two fail/pending-aware quantization selections, renders final reports, and invokes the

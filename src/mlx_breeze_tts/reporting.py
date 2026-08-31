@@ -2,6 +2,7 @@
 
 import html
 import json
+import re
 from pathlib import Path
 
 
@@ -74,9 +75,19 @@ def benchmark_markdown(report: dict) -> str:
     return "\n".join(lines) + "\n"
 
 
-def listening_html(report: dict) -> str:
+def listening_html(
+    report: dict,
+    *,
+    event_only: bool = False,
+    download_name: str = "manual_reviews.json",
+) -> str:
     cards = []
-    for item in report["samples"]:
+    samples = [
+        item
+        for item in report["samples"]
+        if not event_only or str(item.get("capability", "")).startswith("event_")
+    ]
+    for item in samples:
         rtf = float(item.get("rtf", 0))
         rtf_class = "fast" if rtf <= 1.08 else "warn" if rtf <= 1.15 else "slow"
         target = html.escape(str(item.get("text", "")))
@@ -110,7 +121,8 @@ def listening_html(report: dict) -> str:
   </fieldset>
 </article>"""
         )
-    title = html.escape(f"MLX Breeze TTS 2 — {report['status']}")
+    page_kind = "required event review" if event_only else "listening review"
+    title = html.escape(f"MLX Breeze TTS 2 {page_kind} — {report['status']}")
     export_metadata = json.dumps(
         {
             "model_revision": report.get("model_revision"),
@@ -132,10 +144,10 @@ dt{{color:#99a3b7}}dd{{margin:0;overflow-wrap:anywhere}}fieldset{{border:1px sol
 label{{display:block;margin:8px 0}}select,textarea{{float:right;width:55%;background:#0e1118;color:#fff;border:1px solid #3a4458}}
 .fast{{color:#56d68b}}.warn{{color:#ffd166}}.slow{{color:#ff7272}}
 </style>
-<body><h1>MLX Breeze TTS 2 listening review</h1>
+<body><h1>MLX Breeze TTS 2 {page_kind}</h1>
 <p class="meta">Created {html.escape(str(report["created_at"]))} · Model {html.escape(str(report["resolved_model_path"]))}</p>
-<p>Listen to every sample, record verdicts, then export the structured review.</p>
-<button id="export">Export manual_reviews.json</button>
+<p>{"Listen to all eight required event samples, set Event to audible or missing, then export." if event_only else "Listen to the samples you want to review, record verdicts, then export the structured review."}</p>
+<button id="export">Export {html.escape(download_name)}</button>
 <main class="grid">{"".join(cards)}</main>
 <script>
 document.querySelector('#export').addEventListener('click',()=>{{
@@ -148,7 +160,7 @@ document.querySelector('#export').addEventListener('click',()=>{{
   const documentBody={{schema_version:1,exported_at:new Date().toISOString(),...metadata,reviews}};
   const blob=new Blob([JSON.stringify(documentBody,null,2)],{{type:'application/json'}});
   const link=document.createElement('a'); link.href=URL.createObjectURL(blob);
-  link.download='manual_reviews.json'; link.click(); URL.revokeObjectURL(link.href);
+  link.download={json.dumps(download_name)}; link.click(); URL.revokeObjectURL(link.href);
 }});
 </script></body></html>"""
 
@@ -157,7 +169,17 @@ def render_report_bundle(report: dict, output: str | Path) -> Path:
     output = Path(output).expanduser()
     output.mkdir(parents=True, exist_ok=True)
     (output / "report.md").write_text(benchmark_markdown(report))
-    rendered_html = listening_html(report)
+    label = re.sub(r"[^A-Za-z0-9._-]+", "-", output.name).strip("-") or "review"
+    rendered_html = listening_html(
+        report, download_name=f"manual_reviews-{label}.json"
+    )
     (output / "index.html").write_text(rendered_html)
     (output / "report.html").write_text(rendered_html)
+    (output / "events.html").write_text(
+        listening_html(
+            report,
+            event_only=True,
+            download_name=f"manual_reviews-{label}.json",
+        )
+    )
     return output

@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>MLX Breeze TTS 2 — audio_generated_evaluation_pending</title>
+<title>MLX Breeze TTS 2 listening review — audio_generated_evaluation_pending</title>
 <style>
 :root{color-scheme:dark;background:#0b0d12;color:#e8eaf0;font:15px system-ui}
 body{max-width:1180px;margin:32px auto;padding:0 18px}button{padding:9px 14px;margin-bottom:18px}
@@ -13,8 +13,8 @@ label{display:block;margin:8px 0}select,textarea{float:right;width:55%;backgroun
 </style>
 <body><h1>MLX Breeze TTS 2 listening review</h1>
 <p class="meta">Created 2026-08-31T16:25:20.689857+00:00 · Model models/breeze-8bit-sensitive-bf16-v2</p>
-<p>Listen to every sample, record verdicts, then export the structured review.</p>
-<button id="export">Export manual_reviews.json</button>
+<p>Listen to the samples you want to review, record verdicts, then export the structured review.</p>
+<button id="export">Export manual_reviews-8bit.json</button>
 <main class="grid"><article class="card" data-capability="voice_design_en">
   <h2>voice_design_en</h2>
   <audio controls preload="none" src="voice_design_en.wav"></audio>
@@ -579,6 +579,6 @@ document.querySelector('#export').addEventListener('click',()=>{
   const documentBody={schema_version:1,exported_at:new Date().toISOString(),...metadata,reviews};
   const blob=new Blob([JSON.stringify(documentBody,null,2)],{type:'application/json'});
   const link=document.createElement('a'); link.href=URL.createObjectURL(blob);
-  link.download='manual_reviews.json'; link.click(); URL.revokeObjectURL(link.href);
+  link.download="manual_reviews-8bit.json"; link.click(); URL.revokeObjectURL(link.href);
 });
 </script></body></html>
