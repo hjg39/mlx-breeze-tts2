@@ -10,7 +10,7 @@ inference passed on an Apple M3 Max; a fresh standalone Metal run, official BF16
 conversion, 8-bit run, PyTorch parity, and manual event listening remain
 `pending`.
 
-The current automated handoff is `72 passed, 2 Metal-dependent modules skipped`;
+The current automated handoff is `77 passed, 2 Metal-dependent modules skipped`;
 wheel and source distributions build successfully with
 `uv build --no-build-isolation`.
 
@@ -109,6 +109,11 @@ mlx-breeze-tts2 convert --source models/breeze-bf16 --bits 8 --output models/bre
 mlx-breeze-tts2 convert --source models/breeze-bf16 --bits 4 --output models/breeze-4bit
 mlx-breeze-tts2 audit models/breeze-4bit
 ```
+
+Quantized conversion supports reproducible `full` and `sensitive-bf16`
+policies. Exact exclusions, artifact metadata, static consistency checks, and
+the required real-device ablation are documented in
+[`docs/QUANTIZATION.md`](docs/QUANTIZATION.md).
 
 The completion verifier is intentionally fail-closed. Point it at a directory
 containing `bf16/`, `8bit/`, and `4bit/` evidence bundles:

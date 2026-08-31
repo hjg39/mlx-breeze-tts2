@@ -58,6 +58,15 @@ def inspect_checkpoint(path: str | Path) -> dict:
 
     root = Path(path).expanduser().resolve()
     issues: list[str] = []
+    config = {}
+    config_path = root / "config.json"
+    if config_path.is_file():
+        try:
+            config = json.loads(config_path.read_text())
+        except (OSError, json.JSONDecodeError) as exc:
+            issues.append(f"invalid config.json: {exc}")
+    else:
+        issues.append("missing config.json")
     files = sorted(root.glob("model*.safetensors"))
     if not files:
         issues.append("no top-level model safetensors files")
@@ -149,6 +158,21 @@ def inspect_checkpoint(path: str | Path) -> dict:
     runtime_dtype_counts = Counter(
         key_dtypes[key] for key in runtime_keys if key in key_dtypes
     )
+    quantized_modules = sorted(
+        key[: -len(".scales")] for key in keys if key.endswith(".scales")
+    )
+    policy_report = (config.get("mlx_breeze_tts") or {}).get("quantization_policy")
+    if isinstance(policy_report, dict):
+        expected_quantized = sorted(policy_report.get("quantized_modules") or [])
+        if expected_quantized != quantized_modules:
+            issues.append(
+                "quantization policy module list does not match safetensors scales"
+            )
+        configured_policy = (
+            config.get("quantization") or config.get("quantization_config") or {}
+        ).get("policy")
+        if configured_policy != policy_report.get("name"):
+            issues.append("quantization policy name is inconsistent in config")
 
     return {
         "schema_version": 1,
@@ -169,6 +193,12 @@ def inspect_checkpoint(path: str | Path) -> dict:
         "issues": issues,
         "pass": not issues,
         "strict_metal_audit": "pending",
+        "quantization": {
+            "config": config.get("quantization") or config.get("quantization_config"),
+            "policy": (config.get("mlx_breeze_tts") or {}).get("quantization_policy"),
+            "quantized_module_count": len(quantized_modules),
+            "quantized_modules": quantized_modules,
+        },
     }
 
 

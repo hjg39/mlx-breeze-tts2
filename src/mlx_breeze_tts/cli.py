@@ -40,6 +40,11 @@ def _parser() -> argparse.ArgumentParser:
     conversion.add_argument("--dtype", default="bfloat16")
     conversion.add_argument("--bits", type=int, choices=[4, 8])
     conversion.add_argument("--group-size", type=int, default=64)
+    conversion.add_argument(
+        "--quantization-policy",
+        choices=["full", "sensitive-bf16"],
+        default="full",
+    )
 
     linked = sub.add_parser("link-bf16")
     linked.add_argument("--source", required=True, type=Path)
@@ -128,6 +133,7 @@ def main(argv=None) -> int:
             bits=args.bits,
             group_size=args.group_size,
             revision=args.revision,
+            quantization_policy=args.quantization_policy,
         )
         print(destination)
         return 0

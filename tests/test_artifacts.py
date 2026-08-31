@@ -13,9 +13,7 @@ def _fixture(root: Path) -> Path:
     root.mkdir()
     weights = {
         "backbone_model.norm.weight": np.ones((2,), dtype=np.float16),
-        "depth_decoder.model.embed_tokens.weight": np.ones(
-            (2, 2), dtype=np.float16
-        ),
+        "depth_decoder.model.embed_tokens.weight": np.ones((2, 2), dtype=np.float16),
         "text_encoder_proj.weight": np.ones((2, 2), dtype=np.float16),
     }
     save_file(weights, root / "model.safetensors")
@@ -23,9 +21,7 @@ def _fixture(root: Path) -> Path:
         json.dumps(
             {
                 "metadata": {"total_size": 20},
-                "weight_map": {
-                    key: "model.safetensors" for key in sorted(weights)
-                },
+                "weight_map": {key: "model.safetensors" for key in sorted(weights)},
             }
         )
     )
@@ -33,7 +29,9 @@ def _fixture(root: Path) -> Path:
     codec = root / "audio_tokenizer"
     codec.mkdir()
     (codec / "config.json").write_text("{}")
-    save_file({"codec.weight": np.ones((2,), dtype=np.float16)}, codec / "model.safetensors")
+    save_file(
+        {"codec.weight": np.ones((2,), dtype=np.float16)}, codec / "model.safetensors"
+    )
     return root
 
 
@@ -51,6 +49,27 @@ def test_static_inspection_checks_index_without_metal(tmp_path):
     failed = inspect_checkpoint(source)
     assert failed["pass"] is False
     assert "index references missing tensors" in failed["issues"]
+
+
+def test_static_inspection_rejects_quantization_policy_metadata_mismatch(tmp_path):
+    source = _fixture(tmp_path / "source")
+    config = json.loads((source / "config.json").read_text())
+    config["quantization"] = {
+        "bits": 4,
+        "group_size": 64,
+        "mode": "affine",
+        "policy": "full",
+    }
+    config["mlx_breeze_tts"] = {
+        "quantization_policy": {
+            "name": "full",
+            "quantized_modules": ["lm_head"],
+        }
+    }
+    (source / "config.json").write_text(json.dumps(config))
+    report = inspect_checkpoint(source)
+    assert report["pass"] is False
+    assert any("module list" in issue for issue in report["issues"])
 
 
 def test_low_disk_commands_parse_without_importing_mlx(tmp_path):
@@ -86,12 +105,14 @@ def test_copy_helper_links_safetensors(tmp_path, monkeypatch):
         },
     )
     output = materialize_linked_bf16(source, tmp_path / "output")
-    assert os.stat(source / "model.safetensors").st_ino == os.stat(
-        output / "model.safetensors"
-    ).st_ino
-    assert os.stat(source / "audio_tokenizer/model.safetensors").st_ino == os.stat(
-        output / "audio_tokenizer/model.safetensors"
-    ).st_ino
+    assert (
+        os.stat(source / "model.safetensors").st_ino
+        == os.stat(output / "model.safetensors").st_ino
+    )
+    assert (
+        os.stat(source / "audio_tokenizer/model.safetensors").st_ino
+        == os.stat(output / "audio_tokenizer/model.safetensors").st_ino
+    )
     metadata = json.loads((output / "config.json").read_text())["mlx_breeze_tts"]
     assert metadata["storage_mode"] == "hardlink"
     assert metadata["strict_metal_audit"] == "pending"

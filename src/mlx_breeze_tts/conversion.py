@@ -11,10 +11,12 @@ import mlx.core as mx
 import mlx.nn as nn
 from mlx.utils import tree_flatten
 
+from .artifacts import inspect_checkpoint
 from .config import ModelConfig
 from .loader import _apply_quantization, _load_weights, resolve_model_path
 from .model import Model
 from .provenance import inherited_upstream_identity
+from .quantization import POLICY_VERSION, should_quantize_path, validate_policy
 
 
 def audit_checkpoint(path: str | Path) -> dict:
@@ -47,13 +49,24 @@ def audit_checkpoint(path: str | Path) -> dict:
     }
 
 
-def _quantize(model: Model, config: dict, bits: int, group_size: int) -> None:
-    def predicate(_path: str, module: nn.Module) -> bool:
-        return (
+def _quantize(
+    model: Model, config: dict, bits: int, group_size: int, policy: str
+) -> dict:
+    validate_policy(policy)
+    quantized_modules = []
+    excluded_modules = []
+
+    def predicate(path: str, module: nn.Module) -> bool:
+        eligible = (
             hasattr(module, "to_quantized")
             and hasattr(module, "weight")
             and module.weight.shape[-1] % group_size == 0
         )
+        if not eligible:
+            return False
+        selected = should_quantize_path(path, policy)
+        (quantized_modules if selected else excluded_modules).append(path)
+        return selected
 
     nn.quantize(
         model,
@@ -66,8 +79,18 @@ def _quantize(model: Model, config: dict, bits: int, group_size: int) -> None:
         "group_size": group_size,
         "bits": bits,
         "mode": "affine",
+        "policy": policy,
+        "policy_version": POLICY_VERSION,
     }
     config["quantization_config"] = copy.deepcopy(config["quantization"])
+    return {
+        "name": policy,
+        "version": POLICY_VERSION,
+        "quantized_modules": sorted(set(quantized_modules)),
+        "excluded_modules": sorted(set(excluded_modules)),
+        "norm_policy": "bfloat16_not_eligible",
+        "codec_policy": "copied_bfloat16_not_quantized",
+    }
 
 
 def _save_weights(model: Model, output: Path, max_bytes: int = 5 << 30) -> None:
@@ -116,11 +139,15 @@ def convert(
     bits: int | None = None,
     group_size: int = 64,
     revision: str | None = None,
+    quantization_policy: str = "full",
 ) -> Path:
     if dtype not in {"bfloat16", "float16", "float32"}:
         raise ValueError("dtype must be bfloat16, float16, or float32")
     if bits not in {None, 4, 8}:
         raise ValueError("bits must be 4, 8, or omitted")
+    validate_policy(quantization_policy)
+    if bits is None and quantization_policy != "full":
+        raise ValueError("quantization_policy applies only when bits is 4 or 8")
     source_path = resolve_model_path(source, revision=revision)
     destination = Path(output).expanduser()
     if destination.exists() and any(destination.iterdir()):
@@ -155,8 +182,9 @@ def convert(
         [(name, value.astype(target_dtype)) for name, value in supplied.items()],
         strict=True,
     )
+    policy_report = None
     if bits is not None:
-        _quantize(model, config, bits, group_size)
+        policy_report = _quantize(model, config, bits, group_size, quantization_policy)
     mx.eval(model.parameters())
     _save_weights(model, destination)
 
@@ -182,6 +210,7 @@ def convert(
         "dtype": dtype,
         "bits": bits,
         "group_size": group_size if bits else None,
+        "quantization_policy": policy_report,
         "converter_version": "0.1.0",
         "created_at": datetime.now(timezone.utc).isoformat(),
         "weight_sha256": {
@@ -192,6 +221,11 @@ def convert(
     (destination / "config.json").write_text(json.dumps(config, indent=2))
     report = audit_checkpoint(destination)
     (destination / "audit.json").write_text(json.dumps(report, indent=2))
-    if not report["pass"]:
-        raise RuntimeError(f"Converted checkpoint failed strict audit: {report}")
+    static_report = inspect_checkpoint(destination)
+    (destination / "audit.static.json").write_text(json.dumps(static_report, indent=2))
+    if not report["pass"] or not static_report["pass"]:
+        raise RuntimeError(
+            "Converted checkpoint failed audit: "
+            f"runtime={report}; static={static_report}"
+        )
     return destination
