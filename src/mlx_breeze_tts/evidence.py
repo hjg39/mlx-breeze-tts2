@@ -1,7 +1,10 @@
 """Fail-closed verifier for the approved completion gates."""
 
+import hashlib
 import json
 from pathlib import Path
+
+from .parity import EXACT_SECTIONS
 
 REQUIRED_VARIANTS = ("bf16", "8bit", "4bit")
 REQUIRED_CAPABILITIES = {
@@ -41,6 +44,34 @@ def _number(value, default: float) -> float:
         return float(value)
     except (TypeError, ValueError):
         return default
+
+
+def _parity_evidence_passes(validation: dict) -> bool:
+    metadata = validation.get("pytorch_parity_evidence")
+    if not isinstance(metadata, dict):
+        return False
+    path = Path(str(metadata.get("path", ""))).expanduser()
+    if not path.is_file():
+        return False
+    digest = hashlib.sha256(path.read_bytes()).hexdigest()
+    if digest != metadata.get("sha256"):
+        return False
+    try:
+        report = json.loads(path.read_text())
+    except (OSError, json.JSONDecodeError):
+        return False
+    required = set(EXACT_SECTIONS) | {
+        "model_id",
+        "model_revision",
+        "case_id",
+        "intermediate_tensors",
+    }
+    checks = report.get("checks", {})
+    return (
+        report.get("schema_version") == 1
+        and report.get("pass") is True
+        and all(checks.get(name, {}).get("status") == "pass" for name in required)
+    )
 
 
 def verify_evidence_bundle(root: str | Path) -> dict:
@@ -131,8 +162,15 @@ def verify_evidence_bundle(root: str | Path) -> dict:
                 "waveform_integrity",
                 "non-finite/clipping/repeated-tail/stream continuity checks not pass",
             )
-        if validation.get("pytorch_parity") != "pass":
-            _issue(issues, variant, "pytorch_parity", "PyTorch parity is not pass")
+        if validation.get("pytorch_parity") != "pass" or not _parity_evidence_passes(
+            validation
+        ):
+            _issue(
+                issues,
+                variant,
+                "pytorch_parity",
+                "PyTorch parity report, required checks, or SHA-256 is not pass",
+            )
 
         performance = report.get("performance", {})
         for metric in (

@@ -90,6 +90,18 @@ def _parser() -> argparse.ArgumentParser:
     render.add_argument("summary", type=Path)
     render.add_argument("--output", type=Path, required=True)
 
+    parity = sub.add_parser("compare-parity")
+    parity.add_argument("pytorch", type=Path)
+    parity.add_argument("mlx", type=Path)
+    parity.add_argument("--output", type=Path, required=True)
+    parity.add_argument("--atol", type=float, default=1e-4)
+    parity.add_argument("--rtol", type=float, default=1e-3)
+
+    parity_apply = sub.add_parser("apply-parity-evidence")
+    parity_apply.add_argument("summary", type=Path)
+    parity_apply.add_argument("evidence", type=Path)
+    parity_apply.add_argument("--output", type=Path, required=True)
+
     serve = sub.add_parser("serve")
     serve.add_argument("model_pos", nargs="?", help="model path or Hugging Face id")
     serve.add_argument("--model", dest="model_option")
@@ -204,6 +216,25 @@ def main(argv=None) -> int:
 
         report = json.loads(args.summary.read_text())
         output = render_report_bundle(report, args.output)
+        print(output)
+        return 0
+    if args.command == "compare-parity":
+        from .parity import compare_parity_snapshots
+
+        output = compare_parity_snapshots(
+            args.pytorch,
+            args.mlx,
+            args.output,
+            atol=args.atol,
+            rtol=args.rtol,
+        )
+        report = json.loads(output.read_text())
+        print(output)
+        return 0 if report["pass"] else 1
+    if args.command == "apply-parity-evidence":
+        from .parity import apply_parity_evidence
+
+        output = apply_parity_evidence(args.summary, args.evidence, args.output)
         print(output)
         return 0
 

@@ -10,7 +10,7 @@ inference passed on an Apple M3 Max; a fresh standalone Metal run, official BF16
 conversion, 8-bit run, PyTorch parity, and manual event listening remain
 `pending`.
 
-The current automated handoff is `37 passed, 2 Metal-dependent modules skipped`;
+The current automated handoff is `40 passed, 2 Metal-dependent modules skipped`;
 wheel and source distributions build successfully with
 `uv build --no-build-isolation`.
 
@@ -172,6 +172,10 @@ mlx-breeze-tts2 render-report \
 `verify-evidence` prefers `summary.final.json`, then reviewed/metrics summaries,
 while retaining the untouched generation summary as provenance. Missing ASR,
 speaker, leakage, or listening values remain pending and fail closed.
+
+PyTorch parity uses paired revision-pinned JSON snapshots and a hash-verified,
+non-destructive merge. The required fields, tolerances, and commands are in
+[`docs/PYTORCH_PARITY.md`](docs/PYTORCH_PARITY.md).
 
 The pinned local English/Chinese reference paths, exact transcripts, observed
 audio properties, hashes, and usage boundary are recorded in

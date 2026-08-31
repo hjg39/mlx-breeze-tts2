@@ -1,3 +1,4 @@
+import hashlib
 import json
 from pathlib import Path
 
@@ -58,6 +59,24 @@ def _write_complete_variant(root: Path, variant: str):
         }
         for capability in capabilities
     ]
+    parity = directory / "parity.json"
+    checks = {
+        name: {"status": "pass"}
+        for name in (
+            "model_id",
+            "model_revision",
+            "case_id",
+            "template_render",
+            "token_ids",
+            "reference_audio_codes",
+            "masks",
+            "weight_shapes",
+            "deterministic_tokens",
+            "intermediate_tensors",
+        )
+    }
+    parity.write_text(json.dumps({"schema_version": 1, "pass": True, "checks": checks}))
+    parity_sha256 = hashlib.sha256(parity.read_bytes()).hexdigest()
     summary = {
         "artifact_audit": {
             "pass": True,
@@ -76,6 +95,10 @@ def _write_complete_variant(root: Path, variant: str):
             "sampling_path": "pass",
             "waveform_integrity": "pass",
             "pytorch_parity": "pass",
+            "pytorch_parity_evidence": {
+                "path": str(parity),
+                "sha256": parity_sha256,
+            },
         },
         "performance": {
             "load_time_s": 1.0,
