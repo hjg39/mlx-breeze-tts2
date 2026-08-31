@@ -76,6 +76,31 @@ def _parity_evidence_passes(validation: dict) -> bool:
     )
 
 
+def _quantization_evidence_passes(validation: dict, report: dict) -> bool:
+    metadata = validation.get("quantization_ablation_evidence")
+    if not isinstance(metadata, dict):
+        return False
+    path = Path(str(metadata.get("path", ""))).expanduser()
+    if not path.is_file():
+        return False
+    if hashlib.sha256(path.read_bytes()).hexdigest() != metadata.get("sha256"):
+        return False
+    try:
+        evidence = json.loads(path.read_text())
+    except (OSError, json.JSONDecodeError):
+        return False
+    provenance = report.get("model_provenance") or {}
+    policy = provenance.get("quantization_policy") or {}
+    return (
+        evidence.get("schema_version") == 1
+        and evidence.get("pass") is True
+        and evidence.get("selected_policy") == policy.get("name")
+        and evidence.get("selected_policy") == metadata.get("selected_policy")
+        and evidence.get("bits") == provenance.get("bits")
+        and evidence.get("model_revision") == report.get("model_revision")
+    )
+
+
 def verify_evidence_bundle(root: str | Path) -> dict:
     root = Path(root).expanduser()
     issues: list[dict] = []
@@ -182,6 +207,16 @@ def verify_evidence_bundle(root: str | Path) -> dict:
                 variant,
                 "pytorch_parity",
                 "PyTorch parity report, required checks, or SHA-256 is not pass",
+            )
+        if variant != "bf16" and (
+            validation.get("quantization_ablation") != "pass"
+            or not _quantization_evidence_passes(validation, report)
+        ):
+            _issue(
+                issues,
+                variant,
+                "quantization_ablation",
+                "selected policy ablation report or SHA-256 is not pass",
             )
 
         performance = report.get("performance", {})

@@ -22,6 +22,7 @@ def checkpoint_provenance(path: str | Path) -> dict:
     config_path = path / "config.json"
     config = json.loads(config_path.read_text()) if config_path.is_file() else {}
     metadata = config.get("mlx_breeze_tts") or {}
+    quantization = config.get("quantization") or config.get("quantization_config") or {}
     artifact_revision = metadata.get("artifact_revision") or snapshot_revision(path)
     upstream_revision = metadata.get("upstream_revision") or metadata.get("revision")
     return {
@@ -29,9 +30,23 @@ def checkpoint_provenance(path: str | Path) -> dict:
         "upstream_source": metadata.get("upstream_source") or metadata.get("source"),
         "upstream_revision": upstream_revision,
         "dtype": metadata.get("dtype") or config.get("torch_dtype"),
-        "bits": metadata.get("bits"),
+        "bits": metadata.get("bits")
+        if "bits" in metadata
+        else quantization.get("bits"),
+        "quantization_policy": metadata.get("quantization_policy")
+        or (
+            {
+                "name": quantization.get("policy"),
+                "version": quantization.get("policy_version"),
+            }
+            if quantization.get("policy")
+            else None
+        ),
         "storage_mode": metadata.get("storage_mode"),
         "weight_sha256": metadata.get("weight_sha256") or {},
+        "artifact_bytes": sum(
+            item.stat().st_size for item in path.glob("model*.safetensors")
+        ),
     }
 
 

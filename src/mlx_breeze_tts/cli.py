@@ -107,6 +107,16 @@ def _parser() -> argparse.ArgumentParser:
     parity_apply.add_argument("evidence", type=Path)
     parity_apply.add_argument("--output", type=Path, required=True)
 
+    quantization_compare = sub.add_parser("compare-quantization")
+    quantization_compare.add_argument("full", type=Path)
+    quantization_compare.add_argument("sensitive", type=Path)
+    quantization_compare.add_argument("--output", type=Path, required=True)
+
+    quantization_apply = sub.add_parser("apply-quantization-evidence")
+    quantization_apply.add_argument("summary", type=Path)
+    quantization_apply.add_argument("evidence", type=Path)
+    quantization_apply.add_argument("--output", type=Path, required=True)
+
     serve = sub.add_parser("serve")
     serve.add_argument("model_pos", nargs="?", help="model path or Hugging Face id")
     serve.add_argument("--model", dest="model_option")
@@ -241,6 +251,19 @@ def main(argv=None) -> int:
         from .parity import apply_parity_evidence
 
         output = apply_parity_evidence(args.summary, args.evidence, args.output)
+        print(output)
+        return 0
+    if args.command == "compare-quantization":
+        from .ablation import compare_quantization_candidates
+
+        output = compare_quantization_candidates(args.full, args.sensitive, args.output)
+        report = json.loads(output.read_text())
+        print(output)
+        return 0 if report["pass"] else 1
+    if args.command == "apply-quantization-evidence":
+        from .ablation import apply_quantization_evidence
+
+        output = apply_quantization_evidence(args.summary, args.evidence, args.output)
         print(output)
         return 0
 

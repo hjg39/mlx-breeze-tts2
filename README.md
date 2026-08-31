@@ -10,7 +10,7 @@ inference passed on an Apple M3 Max; a fresh standalone Metal run, official BF16
 conversion, 8-bit run, PyTorch parity, and manual event listening remain
 `pending`.
 
-The current automated handoff is `77 passed, 2 Metal-dependent modules skipped`;
+The current automated handoff is `80 passed, 2 Metal-dependent modules skipped`;
 wheel and source distributions build successfully with
 `uv build --no-build-isolation`.
 
@@ -130,6 +130,8 @@ finite load/RTF/TTFA/memory measurements, PyTorch parity, and waveform-integrity
 evidence covering non-finite output, severe clipping, repeated tails, and stream
 boundary discontinuities. Every variant summary must also contain the immutable
 40-character resolved model revision and structured checkpoint provenance.
+Quantized variants additionally require a hash-verified full-versus-sensitive
+policy ablation tied to the same precision and revision.
 
 Run the complete 23-case matrix with separate exact English and Chinese
 reference pairs. It covers both languages for design/clone/direction,

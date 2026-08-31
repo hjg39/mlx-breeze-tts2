@@ -77,9 +77,34 @@ def _write_complete_variant(root: Path, variant: str):
     }
     parity.write_text(json.dumps({"schema_version": 1, "pass": True, "checks": checks}))
     parity_sha256 = hashlib.sha256(parity.read_bytes()).hexdigest()
+    bits = None if variant == "bf16" else (8 if variant == "8bit" else 4)
+    model_provenance = {"artifact_revision": "a" * 40, "bits": bits}
+    quantization_validation = {}
+    if bits is not None:
+        model_provenance["quantization_policy"] = {"name": "full", "version": 1}
+        ablation = directory / "quantization-ablation.json"
+        ablation.write_text(
+            json.dumps(
+                {
+                    "schema_version": 1,
+                    "pass": True,
+                    "selected_policy": "full",
+                    "bits": bits,
+                    "model_revision": "a" * 40,
+                }
+            )
+        )
+        quantization_validation = {
+            "quantization_ablation": "pass",
+            "quantization_ablation_evidence": {
+                "path": str(ablation),
+                "sha256": hashlib.sha256(ablation.read_bytes()).hexdigest(),
+                "selected_policy": "full",
+            },
+        }
     summary = {
         "model_revision": "a" * 40,
-        "model_provenance": {"artifact_revision": "a" * 40},
+        "model_provenance": model_provenance,
         "artifact_audit": {
             "pass": True,
             "missing": [],
@@ -101,6 +126,7 @@ def _write_complete_variant(root: Path, variant: str):
                 "path": str(parity),
                 "sha256": parity_sha256,
             },
+            **quantization_validation,
         },
         "performance": {
             "load_time_s": 1.0,

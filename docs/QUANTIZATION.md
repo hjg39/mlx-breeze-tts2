@@ -28,8 +28,28 @@ module lists. `inspect-checkpoint` independently reconstructs the module list
 from safetensors `.scales` keys and fails if metadata differs. Conversion runs
 both strict runtime and static audits before returning.
 
-Run the same 23-case benchmark and objective/listening workflow on both
-candidates. Selection remains `pending` until CER, ECAPA cosine/P10, leakage,
-events, waveform integrity, RTF, TTFA, memory, and artifact size have been
-compared on the local machine. Do not infer the winning policy from static size
-or the precursor LunaFox checkpoint alone.
+Run the same 23-case benchmark and objective/listening/PyTorch-parity workflow
+on both candidates, then compare completed summaries:
+
+```bash
+mlx-breeze-tts2 compare-quantization \
+  reports/ablation/4bit-full/summary.final.json \
+  reports/ablation/4bit-sensitive/summary.final.json \
+  --output reports/ablation/4bit-comparison.json
+
+mlx-breeze-tts2 apply-quantization-evidence \
+  reports/ablation/4bit-full/summary.final.json \
+  reports/ablation/4bit-comparison.json \
+  --output reports/full_matrix/4bit/summary.final.json
+```
+
+The comparator first applies every approved quality, interface, event,
+waveform, parity, and performance gate. It selects the only passing candidate,
+or—when both pass—the smaller artifact, then lower steady-state RTF, with the
+sensitive policy as an exact tie-break. Inputs and the selected summary are
+hashed. `verify-evidence` independently checks the report hash, precision,
+revision, and selected policy.
+
+Selection remains `pending` until those measurements exist on the local
+machine. Do not infer the winner from static size or the precursor LunaFox
+checkpoint alone.
