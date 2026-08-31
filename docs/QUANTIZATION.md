@@ -6,9 +6,11 @@ artifact. The converter exposes two deterministic policy candidates:
 - `full`: quantize every eligible affine/embedding module whose input width is
   divisible by the group size. This is closest to the existing LunaFox 4-bit
   reference, which has 468 modules with stored scales.
-- `sensitive-bf16`: keep the text/audio embeddings, projection bridges,
-  `lm_head`, and depth input projections in BF16 while quantizing transformer
-  attention and MLP modules.
+- `sensitive-bf16` policy v2: keep the complete text encoder and depth decoder,
+  text/audio embeddings, projection bridges, and `lm_head` in BF16 while
+  quantizing the main generation backbone. Policy v1 retained only six bridge
+  modules and failed the real-device content gate; its artifacts and reports
+  remain historical evidence rather than release candidates.
 
 Norms are not eligible for MLX affine quantization and remain BF16. The external
 audio-tokenizer directory remains BF16 under both policies. Its immutable files
@@ -55,3 +57,8 @@ revision, and selected policy.
 Selection remains `pending` until those measurements exist on the local
 machine. Do not infer the winner from static size or the precursor LunaFox
 checkpoint alone.
+
+Content quality uses corpus CER over standard-content cases. Per-case CER and
+its maximum remain in each report for diagnosis; non-verbal event cases use the
+separate listening gate, and exploratory cross-language cases are reported but
+do not change the standard-content corpus denominator.

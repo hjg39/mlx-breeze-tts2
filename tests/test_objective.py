@@ -52,7 +52,9 @@ def test_template_resolves_audio_and_objective_merge_aggregates(tmp_path):
     assert template["rows"][0]["audio"] == str((tmp_path / "design.wav").resolve())
     for row in template["rows"]:
         row["asr_text"] = (
-            "Hello world" if row["capability"] == "voice_design_en" else "Target sentence"
+            "Hello world"
+            if row["capability"] == "voice_design_en"
+            else "Target sentence"
         )
         if row["capability"] == "voice_clone_en":
             row["speaker_cosine"] = 0.8
@@ -65,10 +67,62 @@ def test_template_resolves_audio_and_objective_merge_aggregates(tmp_path):
     merged = json.loads(output.read_text())
     validation = merged["validation"]
     assert validation["max_cer"] == 0.0
+    assert validation["corpus_cer"] == 0.0
+    assert validation["corpus_cer_edits"] == 0
     assert validation["clone_cosine_min"] == 0.8
     assert validation["clone_p10_min"] == 0.7
     assert validation["leakage_max"] < 0.65
     assert validation["objective_metrics"] == "complete"
+
+
+def test_cer_gate_excludes_events_and_exploratory_cross_language(tmp_path):
+    summary = tmp_path / "summary.json"
+    summary.write_text(
+        json.dumps(
+            {
+                "samples": [
+                    {
+                        "capability": "voice_design_en",
+                        "expected_text": "Standard text.",
+                        "status": "audio_generated",
+                    },
+                    {
+                        "capability": "event_en_laugh",
+                        "expected_text": "(laugh) Event text.",
+                        "status": "audio_generated",
+                    },
+                    {
+                        "capability": "cross_clone_zh_to_en",
+                        "expected_text": "Exploratory text.",
+                        "status": "audio_generated",
+                    },
+                ],
+                "validation": {},
+            }
+        )
+    )
+    metrics = tmp_path / "metrics.json"
+    metrics.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "rows": [
+                    {"capability": "voice_design_en", "asr_text": "Standard text"},
+                    {"capability": "event_en_laugh", "asr_text": "wrong"},
+                    {"capability": "cross_clone_zh_to_en", "asr_text": "wrong"},
+                ],
+            }
+        )
+    )
+
+    output = apply_objective_metrics(summary, metrics, tmp_path / "output.json")
+    validation = json.loads(output.read_text())["validation"]
+    assert validation["max_cer"] == 0.0
+    assert validation["corpus_cer"] == 0.0
+    assert (
+        validation["cer_scope"]
+        == "standard_content_excluding_events_and_cross_language"
+    )
 
 
 def test_missing_or_invalid_metrics_fail_closed(tmp_path):
@@ -135,7 +189,9 @@ def test_evaluator_fills_metrics_and_records_provenance(tmp_path):
     def fake_run(command, **_kwargs):
         if "--output-dir" in command:
             output = command[command.index("--output-dir") + 1]
-            Path(output, "result.json").write_text(json.dumps({"text": "Target sentence"}))
+            Path(output, "result.json").write_text(
+                json.dumps({"text": "Target sentence"})
+            )
             return subprocess.CompletedProcess(command, 0, "", "")
         payload = {
             "cosine": 0.8,
@@ -185,9 +241,7 @@ def test_evaluator_retains_failures_and_fails_closed(tmp_path):
         json.dumps(
             {
                 "schema_version": 1,
-                "rows": [
-                    {"capability": "voice_design_en", "audio": str(audio)}
-                ],
+                "rows": [{"capability": "voice_design_en", "audio": str(audio)}],
             }
         )
     )

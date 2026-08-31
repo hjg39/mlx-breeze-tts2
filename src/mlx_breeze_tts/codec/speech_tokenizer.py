@@ -1219,7 +1219,7 @@ class Qwen3TTSSpeechTokenizer(nn.Module):
     @staticmethod
     def sanitize(weights: Dict[str, mx.array]) -> Dict[str, mx.array]:
         """Sanitize weights from PyTorch to MLX format."""
-        from .qwen3_tts import check_array_shape_qwen3
+        from .weight_utils import conv1d_weight_is_mlx_layout
 
         sanitized = {}
 
@@ -1402,11 +1402,23 @@ class Qwen3TTSSpeechTokenizer(nn.Module):
                 )
 
                 if is_transpose_conv and len(v.shape) == 3:
-                    v = v if check_array_shape_qwen3(v) else mx.transpose(v, (1, 2, 0))
+                    v = (
+                        v
+                        if conv1d_weight_is_mlx_layout(v)
+                        else mx.transpose(v, (1, 2, 0))
+                    )
                 elif "conv.weight" in k and len(v.shape) == 3:
-                    v = v if check_array_shape_qwen3(v) else mx.transpose(v, (0, 2, 1))
+                    v = (
+                        v
+                        if conv1d_weight_is_mlx_layout(v)
+                        else mx.transpose(v, (0, 2, 1))
+                    )
                 elif "_proj.weight" in k and len(v.shape) == 3:
-                    v = v if check_array_shape_qwen3(v) else mx.transpose(v, (0, 2, 1))
+                    v = (
+                        v
+                        if conv1d_weight_is_mlx_layout(v)
+                        else mx.transpose(v, (0, 2, 1))
+                    )
 
                 sanitized[new_key] = v
 

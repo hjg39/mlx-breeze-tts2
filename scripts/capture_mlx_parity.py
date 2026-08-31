@@ -30,10 +30,10 @@ def main() -> int:
     from mlx.utils import tree_flatten
 
     from mlx_breeze_tts.loader import load
-    from mlx_breeze_tts.provenance import read_checkpoint_provenance
+    from mlx_breeze_tts.provenance import checkpoint_provenance
 
     model_path = args.model.expanduser().resolve()
-    provenance = read_checkpoint_provenance(model_path)
+    provenance = checkpoint_provenance(model_path)
     if provenance.get("upstream_revision") != MODEL_REVISION:
         raise RuntimeError("MLX checkpoint does not inherit the approved revision")
     model = load(model_path)

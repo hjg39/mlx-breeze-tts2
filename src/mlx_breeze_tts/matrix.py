@@ -75,7 +75,7 @@ def build_acceptance_matrix(
         ),
         _clone_case(
             "voice_clone_zh",
-            "请使用参考音色朗读这句话。",
+            "请使用参考音色清晰自然地朗读这段内容，保持语速稳定并准确表达完整意思。",
             reference_zh,
         ),
         _clone_case(

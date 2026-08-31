@@ -3,18 +3,16 @@
 from __future__ import annotations
 
 POLICIES = ("full", "sensitive-bf16")
-POLICY_VERSION = 1
+POLICY_VERSION = 2
 
 SENSITIVE_BF16_PREFIXES = (
     "lm_head",
     "embed_text_tokens",
-    "text_encoder.embed_tokens",
+    "text_encoder",
     "text_encoder_proj",
     "backbone_model.embed_tokens.embed_audio_tokens",
     "backbone_model.embed_tokens.audio_embeds_projector",
-    "depth_decoder.model.embed_tokens",
-    "depth_decoder.model.backbone_hidden_state_projector",
-    "depth_decoder.model.inputs_embeds_projector",
+    "depth_decoder",
 )
 
 

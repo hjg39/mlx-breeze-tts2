@@ -5,12 +5,12 @@ the required MLX transformer and Qwen3 speech-codec primitives and does **not**
 depend on `mlx-audio` at runtime.
 
 Status: the isolated source, generation API, CLI, conversion/audit surface, and
-upstream-compatible HTTP endpoint are implemented. Existing 4-bit baseline
-inference passed on an Apple M3 Max; a fresh standalone Metal run, official BF16
-conversion, 8-bit run, PyTorch parity, and manual event listening remain
-`pending`.
+upstream-compatible HTTP endpoint are implemented. Official BF16 plus policy-v2
+8-bit/4-bit artifacts passed the real M3 Max generation, objective-quality,
+waveform, interface, performance, and precision-specific PyTorch parity gates.
+Manual event listening remains `pending`.
 
-The current automated handoff is `80 passed, 2 Metal-dependent modules skipped`;
+The current automated handoff is `123 passed` on the project machine;
 wheel and source distributions build successfully with
 `uv build --no-build-isolation`.
 
@@ -142,9 +142,9 @@ cd /Users/vanch/mlx-breeze-tts2
 ```
 
 It never removes artifacts and refuses incomplete existing model or evidence
-directories. Completed stages are validated and skipped on rerun. PyTorch
-parity and eight-event manual listening remain explicit completion gates after
-the automated stages.
+directories. Completed stages are validated and skipped on rerun. The current
+paired parity evidence is under `reports/parity/`; eight-event manual listening
+remains the final explicit completion gate.
 
 It exits non-zero until strict artifact audits, the complete capability/event
 matrix, CER/speaker/leakage thresholds, interfaces, reproducibility, WAVs,
@@ -210,7 +210,8 @@ mlx-breeze-tts2 render-report \
 
 `verify-evidence` prefers `summary.final.json`, then reviewed/metrics summaries,
 while retaining the untouched generation summary as provenance. Missing ASR,
-speaker, leakage, or listening values remain pending and fail closed.
+speaker, leakage, or listening values remain pending and fail closed. Content
+uses corpus CER over standard cases; per-case and maximum CER remain diagnostic.
 
 PyTorch parity uses paired revision-pinned JSON snapshots and a hash-verified,
 non-destructive merge. The required fields, tolerances, and commands are in

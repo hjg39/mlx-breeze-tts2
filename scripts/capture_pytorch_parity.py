@@ -5,8 +5,12 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
+import tempfile
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 
 from mlx_breeze_tts.parity_capture import (
@@ -36,6 +40,35 @@ def _source_revision(repository: Path) -> str:
     return revision
 
 
+def _eager_attention_config(config: dict) -> dict:
+    """Copy a Breeze config and force its nested text encoder to eager attention."""
+
+    patched = json.loads(json.dumps(config))
+    patched["_attn_implementation"] = "eager"
+    text_encoder = patched.get("text_encoder_config")
+    if not isinstance(text_encoder, dict):
+        raise TypeError("Breeze checkpoint is missing text_encoder_config")
+    text_encoder["preferred_attn_implementation"] = "eager"
+    text_encoder["_attn_implementation"] = "eager"
+    return patched
+
+
+@contextmanager
+def _eager_checkpoint_overlay(model_path: Path) -> Iterator[Path]:
+    """Expose a temporary config overlay without copying or modifying model weights."""
+
+    config = json.loads((model_path / "config.json").read_text())
+    with tempfile.TemporaryDirectory(prefix="breeze-eager-") as temporary:
+        overlay = Path(temporary)
+        for child in model_path.iterdir():
+            if child.name != "config.json":
+                os.symlink(child, overlay / child.name, target_is_directory=child.is_dir())
+        (overlay / "config.json").write_text(
+            json.dumps(_eager_attention_config(config), indent=2) + "\n"
+        )
+        yield overlay
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--official-repo", type=Path, required=True)
@@ -63,11 +96,12 @@ def main() -> int:
     from breeze_infer.templates import get_template, prepare_inputs
 
     set_all_seeds(42)
-    tokenizer, model, audio_tokenizer = load_runtime(
-        model_path,
-        device=args.device,
-        attn_implementation="eager",
-    )
+    with _eager_checkpoint_overlay(model_path) as runtime_model_path:
+        tokenizer, model, audio_tokenizer = load_runtime(
+            runtime_model_path,
+            device=args.device,
+            attn_implementation="eager",
+        )
     request = {
         "id": "parity",
         "speaker": "S0",
@@ -148,6 +182,12 @@ def main() -> int:
             "device": args.device,
             "torch_version": torch.__version__,
             "checkpoint": str(model_path),
+            "attention_implementation": "eager",
+            "text_encoder_attention_implementation": "eager",
+            "attention_override_reason": (
+                "FlashAttention2 is unavailable on Apple Silicon; official API "
+                "supports eager attention"
+            ),
             "reference_audio_sha256": file_sha256(args.ref_audio),
         },
     )

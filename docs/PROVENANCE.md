@@ -33,39 +33,32 @@ and `THIRD_PARTY_NOTICES.md`.
 | 4-bit voice design / clone / direction / ZH event / streaming on M3 Max | pass on precursor implementation | `reports/baseline/summary.json` and WAVs |
 | ASR content fidelity in five baseline cases | pass | Whisper large-v3-turbo, zero failures |
 | Clone speaker similarity | pass | ECAPA cosine `0.775864`, threshold `0.25` |
-| Metal-independent standalone tests | pass | 90 passed, 0 failed |
+| Standalone automated tests | pass | 123 passed, 0 failed on the project machine |
 | Approved acceptance-matrix coverage | pass | 23 deterministic cases; complete required capability/event set; fake-runtime report and real FastAPI contract tests |
 | Manual listening evidence workflow | pass | HTML JSON export plus validated, non-destructive CLI merge tests |
 | EN/ZH evaluation references | pass for local internal evaluation | `reports/full_matrix/input_manifest.json` and `input_validation.json`; files exist, mono 24 kHz PCM16, exact registry transcripts and SHA-256 verified |
 | Objective metric integration | pass | validated ASR/ECAPA worksheet merge; event-aware CER, skill-compatible leakage similarity, min cosine/P10 aggregation, missing values fail closed |
 | Automated objective backend | pass on precursor evidence | `evaluate-objective-metrics` records Whisper snapshot/artifact hashes and actual ECAPA device; `reports/baseline/objective_backend_check.json` reproduces cosine/P10 `0.775864`/`0.774540` with the standalone worker |
 | Waveform/performance completion gates | pass | benchmark records load/RTF/TTFA/memory plus non-finite, clipping, repeated-tail, and stream-boundary diagnostics; verifier fails closed on missing evidence |
-| PyTorch parity evidence workflow | pass; real comparison pending | clean official source checkout and environment manifest; paired official/MLX prefill captures for template, token IDs, codec codes, masks, weight shapes, argmax, prompt/backbone/logit slices; hashes, non-destructive merge, and verifier checks |
+| PyTorch parity evidence workflow | pass | clean official source checkout and environment manifest; paired BF16/8-bit/4-bit captures under `reports/parity/`; exact template/token/codec/mask/shape/argmax checks plus recorded precision-specific tensor tolerances |
 | Revision propagation and report identity | pass | HF snapshot revisions are resolved from paths; BF16→8/4-bit conversions inherit the original upstream identity; completion verifier rejects mutable/missing revisions |
-| Explicit quantization policy and static consistency | pass; real ablation pending | versioned full/sensitive-BF16 policies, exact included/excluded module metadata, safetensors scale-key cross-check, strict runtime plus static post-conversion audits |
+| Explicit quantization policy and static consistency | pass; listening-dependent selection pending | sensitive-BF16 v2 preserves the complete text encoder and depth decoder after v1 quality failures; exact module metadata, safetensors scale-key cross-check, and strict audits |
 | Low-disk auxiliary artifact storage | pass | quantized candidates hard-link immutable codec/tokenizer assets on the same volume, fall back to copies across volumes, and regenerate mutable config/audits |
 | Quantization ablation selection workflow | pass; real comparison pending | applies complete quality/interface/event/waveform/parity/performance gates, deterministic size/RTF selection, input hashes, non-destructive merge, and independent verifier checks |
 | Objective metric baseline cross-check | pass on precursor evidence | `reports/baseline/objective_recalculation.json`; max CER 0.0, leakage 0.2194, ECAPA cosine/P10 0.7759/0.7745 |
 | 4-bit safetensors/index static preflight | pass | `reports/baseline/checkpoint_static_audit.json`; 1,234 tensors, no index inconsistency |
-| Standalone MLX architecture/model tests | pending | 2 modules skipped because this execution sandbox cannot initialize Metal |
-| Standalone 4-bit real-device run | pending | `reports/current_runtime_probe.json`; current execution sandbox cannot initialize Metal |
-| Official BF16 conversion and inference | pending | source artifact not yet downloaded in this run |
-| 8-bit conversion and inference | pending | depends on BF16 artifact |
-| PyTorch parity | missing evidence | paired upstream run not yet captured |
+| Standalone MLX architecture/model tests | pass | Metal-capable local run included in the 123-test suite and full real-device matrix |
+| Standalone 4-bit real-device run | pass | `reports/release-v2/4bit/` |
+| Official BF16 conversion and inference | pass | pinned download plus `reports/release-v2/bf16/` |
+| 8-bit conversion and inference | pass | sensitive-BF16 policy v2 plus `reports/release-v2/8bit/` |
+| PyTorch parity | pass | `reports/parity/comparison-*-v2-*.json` and BF16 2% report |
 | Manual event audibility | pending | listening review required |
 
 Do not promote any pending row to pass without adding the machine-readable
 artifact and exact command/revision used.
 
-## Current execution blockers
+## Current execution blocker
 
-- The execution sandbox reports `No Metal device available`; this prevents a
-  fresh standalone model load even though the earlier precursor run used the
-  same M3 Max successfully.
-- The data volume currently has about 19 GiB free after the user released
-  space. `link-bf16` still avoids an unnecessary duplicate by creating a
-  same-volume hard-linked candidate without duplicating safetensors blocks.
-- Browser security denied the official Hugging Face download, and the command
-  sandbox currently cannot resolve Hugging Face/PyPI hosts. The pinned local
-  snapshot or an approved working download channel is still required before
-  BF16/8-bit conversion can run.
+- Manual event audibility cannot be inferred from ASR. A human reviewer must
+  listen to the eight event WAVs in each `reports/release-v2/*/index.html` and
+  export/merge the verdicts before the completion claim and policy selection.

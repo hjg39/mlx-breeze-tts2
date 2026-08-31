@@ -1,0 +1,76 @@
+{
+  "schema_version": 1,
+  "pytorch_snapshot": "/Users/vanch/mlx-breeze-tts2/reports/parity/pytorch.json",
+  "pytorch_sha256": "71863299a58e350ed5557a28f181580ffb10a3401d42c7be857f330597ef202d",
+  "mlx_snapshot": "/Users/vanch/mlx-breeze-tts2/reports/parity/mlx-8bit-full.json",
+  "mlx_sha256": "32a889aefd36033181030d3c7468d4a3b3b95ddb427dc84a2921615f178f3cc7",
+  "atol": 0.2,
+  "rtol": 0.1,
+  "checks": {
+    "model_id": {
+      "status": "pass"
+    },
+    "model_revision": {
+      "status": "pass"
+    },
+    "case_id": {
+      "status": "pass"
+    },
+    "template_render": {
+      "status": "pass"
+    },
+    "token_ids": {
+      "status": "pass"
+    },
+    "reference_audio_codes": {
+      "status": "pass"
+    },
+    "masks": {
+      "status": "pass"
+    },
+    "weight_shapes": {
+      "status": "fail"
+    },
+    "deterministic_tokens": {
+      "status": "pass"
+    },
+    "intermediate_tensors": {
+      "status": "pass",
+      "tensors": {
+        "backbone_last_32": {
+          "status": "pass",
+          "shape": [
+            32
+          ],
+          "max_abs_error": 0.021837234497070312
+        },
+        "logits_last_64": {
+          "status": "pass",
+          "shape": [
+            64
+          ],
+          "max_abs_error": 0.042990922927856445
+        },
+        "prompt_first_32": {
+          "status": "pass",
+          "shape": [
+            32
+          ],
+          "max_abs_error": 0.015957891941070557
+        },
+        "prompt_last_32": {
+          "status": "pass",
+          "shape": [
+            32
+          ],
+          "max_abs_error": 0.009875603020191193
+        }
+      }
+    }
+  },
+  "issues": [
+    "weight_shapes differs or is missing"
+  ],
+  "status": "fail",
+  "pass": false
+}

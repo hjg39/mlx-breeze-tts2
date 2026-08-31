@@ -22,6 +22,12 @@ _REFERENCE_CAPABILITIES = {
 }
 
 
+def _is_standard_content(capability: str) -> bool:
+    """Exclude non-verbal events and exploratory cross-language cases from CER gate."""
+
+    return not capability.startswith(("event_", "cross_clone_"))
+
+
 def normalize_text(text: str, *, strip_events: bool = False) -> str:
     value = unicodedata.normalize("NFKC", text or "").lower()
     if strip_events:
@@ -32,8 +38,13 @@ def normalize_text(text: str, *, strip_events: bool = False) -> str:
 def character_error_rate(expected: str, observed: str) -> float:
     source = normalize_text(expected, strip_events=True)
     target = normalize_text(observed)
+    edits = _character_edit_distance(source, target)
+    return edits / len(source) if source else (0.0 if not target else 1.0)
+
+
+def _character_edit_distance(source: str, target: str) -> int:
     if not source:
-        return 0.0 if not target else 1.0
+        return len(target)
     previous = list(range(len(target) + 1))
     for source_index, source_character in enumerate(source, 1):
         current = [source_index]
@@ -42,12 +53,11 @@ def character_error_rate(expected: str, observed: str) -> float:
                 min(
                     current[-1] + 1,
                     previous[target_index] + 1,
-                    previous[target_index - 1]
-                    + (source_character != target_character),
+                    previous[target_index - 1] + (source_character != target_character),
                 )
             )
         previous = current
-    return previous[-1] / len(source)
+    return previous[-1]
 
 
 def reference_leakage_similarity(reference_text: str, asr_text: str) -> float:
@@ -118,7 +128,9 @@ def apply_objective_metrics(
     if document.get("schema_version") != 1 or not isinstance(rows, list):
         raise ValueError("Metrics document must use schema_version 1 and rows[]")
 
-    samples = {sample.get("capability"): sample for sample in summary.get("samples", [])}
+    samples = {
+        sample.get("capability"): sample for sample in summary.get("samples", [])
+    }
     if document.get("evaluation"):
         summary["objective_provenance"] = document["evaluation"]
     seen: set[str] = set()
@@ -151,6 +163,21 @@ def apply_objective_metrics(
         for sample in samples.values()
         if sample.get("status") == "audio_generated"
     ]
+    standard_content = [
+        sample
+        for sample in generated
+        if _is_standard_content(str(sample.get("capability") or ""))
+    ]
+    corpus_characters = 0
+    corpus_edits = 0
+    for sample in standard_content:
+        expected = normalize_text(
+            sample.get("expected_text") or sample.get("text", ""),
+            strip_events=True,
+        )
+        observed = normalize_text(sample.get("asr_text") or "")
+        corpus_characters += len(expected)
+        corpus_edits += _character_edit_distance(expected, observed)
     missing_asr = sorted(
         sample["capability"] for sample in generated if sample.get("cer") is None
     )
@@ -172,9 +199,17 @@ def apply_objective_metrics(
     validation = summary.setdefault("validation", {})
     validation.update(
         {
-            "max_cer": max((sample["cer"] for sample in generated), default=None)
+            "max_cer": max((sample["cer"] for sample in standard_content), default=None)
             if not missing_asr
             else None,
+            "corpus_cer": (
+                corpus_edits / corpus_characters if corpus_characters else None
+            )
+            if not missing_asr
+            else None,
+            "corpus_cer_edits": corpus_edits if not missing_asr else None,
+            "corpus_cer_characters": corpus_characters if not missing_asr else None,
+            "cer_scope": "standard_content_excluding_events_and_cross_language",
             "clone_cosine_min": min(
                 (sample["speaker_cosine"] for sample in referenced), default=None
             )

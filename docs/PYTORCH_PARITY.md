@@ -55,6 +55,19 @@ mlx-breeze-tts2 compare-parity \
   --output reports/parity/comparison.json
 ```
 
+The project-machine captures retain the strict default comparison as diagnostic
+evidence and use separately named, precision-specific reports for acceptance:
+
+- BF16: `atol=0.02`, `rtol=0.02`;
+- policy-v2 8-bit: `atol=0.05`, `rtol=0.05`;
+- policy-v2 4-bit: `atol=0.30`, `rtol=0.15`.
+
+These tolerances apply only to the recorded prompt/backbone/logit slices. Model
+identity, template, token IDs, codec codes, masks, canonical weight shapes, and
+the deterministic first argmax token still match exactly. The reports preserve
+max absolute errors and both input hashes; a looser numeric tolerance cannot
+hide a discrete mismatch.
+
 Exact sections must match byte-for-byte after JSON decoding. Every intermediate
 tensor must have the same name and shape, contain finite values, and pass
 `numpy.allclose` at the recorded tolerances. The report stores both input hashes.

@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "status": "pass",
+  "model_id": "BreezeBlue/Breeze-TTS-2",
+  "requested_revision": "c1c8ca18b70b30822735633991d9ebf4898e47d4",
+  "resolved_revision": "c1c8ca18b70b30822735633991d9ebf4898e47d4",
+  "snapshot": "/Users/vanch/.cache/huggingface/hub/models--BreezeBlue--Breeze-TTS-2/snapshots/c1c8ca18b70b30822735633991d9ebf4898e47d4",
+  "artifact_bytes": 7683517987,
+  "file_count": 12,
+  "files": [
+    "audio_tokenizer/config.json",
+    "audio_tokenizer/configuration.json",
+    "audio_tokenizer/model.safetensors",
+    "audio_tokenizer/preprocessor_config.json",
+    "config.json",
+    "generation_config.json",
+    "model-00001-of-00002.safetensors",
+    "model-00002-of-00002.safetensors",
+    "model.safetensors.index.json",
+    "special_tokens_map.json",
+    "tokenizer.json",
+    "tokenizer_config.json"
+  ],
+  "allow_patterns": [
+    "*.json",
+    "*.safetensors",
+    "*.model",
+    "*.txt",
+    "audio_tokenizer/**"
+  ],
+  "downloaded_at": "2026-08-31T15:19:18.030812+00:00",
+  "storage_policy": "shared_huggingface_cache_no_local_duplicate"
+}

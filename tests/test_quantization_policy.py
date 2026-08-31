@@ -22,6 +22,13 @@ def test_sensitive_policy_preserves_declared_modules_only():
         )
         is True
     )
+    assert (
+        should_quantize_path("text_encoder.layers.0.self_attn.q_proj", "sensitive-bf16")
+        is False
+    )
+    assert (
+        should_quantize_path("depth_decoder.codebooks_head", "sensitive-bf16") is False
+    )
 
 
 def test_unknown_policy_is_rejected():

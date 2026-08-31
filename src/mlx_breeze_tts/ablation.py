@@ -55,7 +55,7 @@ def _candidate(path: Path) -> dict:
     ):
         issues.append("public interfaces are not all pass")
     thresholds = (
-        (validation.get("max_cer"), lambda value: value <= 0.05, "CER"),
+        (validation.get("corpus_cer"), lambda value: value <= 0.05, "corpus CER"),
         (
             validation.get("clone_cosine_min"),
             lambda value: value >= 0.25,

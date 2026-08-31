@@ -22,7 +22,7 @@ def test_pending_numeric_fields_fail_closed_instead_of_crashing(tmp_path):
         _write_complete_variant(tmp_path, variant)
         path = tmp_path / variant / "summary.json"
         summary = json.loads(path.read_text())
-        summary["validation"]["max_cer"] = None
+        summary["validation"]["corpus_cer"] = None
         summary["validation"]["clone_cosine_min"] = "pending"
         path.write_text(json.dumps(summary))
     report = verify_evidence_bundle(tmp_path)
@@ -115,6 +115,7 @@ def _write_complete_variant(root: Path, variant: str):
         "samples": samples,
         "validation": {
             "max_cer": 0.05,
+            "corpus_cer": 0.05,
             "clone_cosine_min": 0.25,
             "clone_p10_min": 0.25,
             "leakage_max": 0.64,

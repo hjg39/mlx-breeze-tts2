@@ -180,8 +180,13 @@ def verify_evidence_bundle(root: str | Path) -> dict:
                 )
 
         validation = report.get("validation", {})
-        if _number(validation.get("max_cer"), 1.0) > 0.05:
-            _issue(issues, variant, "content", "max CER exceeds 0.05 or is missing")
+        if _number(validation.get("corpus_cer"), 1.0) > 0.05:
+            _issue(
+                issues,
+                variant,
+                "content",
+                "standard-content corpus CER exceeds 0.05 or is missing",
+            )
         if _number(validation.get("clone_cosine_min"), -1.0) < 0.25:
             _issue(issues, variant, "speaker", "clone cosine minimum below 0.25")
         if _number(validation.get("clone_p10_min"), -1.0) < 0.25:

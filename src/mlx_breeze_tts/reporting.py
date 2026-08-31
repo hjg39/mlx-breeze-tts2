@@ -55,7 +55,8 @@ def benchmark_markdown(report: dict) -> str:
             "",
             "## Validation gates",
             "",
-            f"- Maximum CER: `{_metric(validation.get('max_cer'), 4)}`",
+            f"- Standard-content corpus CER: `{_metric(validation.get('corpus_cer'), 4)}`",
+            f"- Maximum per-case CER (diagnostic): `{_metric(validation.get('max_cer'), 4)}`",
             f"- Minimum clone cosine: `{_metric(validation.get('clone_cosine_min'), 4)}`",
             f"- Minimum clone P10: `{_metric(validation.get('clone_p10_min'), 4)}`",
             f"- Maximum reference leakage: `{_metric(validation.get('leakage_max'), 4)}`",
@@ -63,8 +64,10 @@ def benchmark_markdown(report: dict) -> str:
             f"- PyTorch parity: `{validation.get('pytorch_parity', 'pending')}`",
             f"- Manual listening: `{validation.get('manual_listening', 'pending')}`",
             "",
-            "ASR, speaker similarity, leakage, and manual listening are explicitly "
-            "`pending` unless their report fields contain measured evidence.",
+            (
+                "ASR, speaker similarity, leakage, and manual listening are explicitly "
+                "`pending` unless their report fields contain measured evidence."
+            ),
         ]
     )
     return "\n".join(lines) + "\n"

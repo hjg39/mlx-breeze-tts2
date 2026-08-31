@@ -5,7 +5,6 @@ from mlx_breeze_tts.ablation import (
     compare_quantization_candidates,
 )
 
-
 EVENTS = [
     f"event_{language}_{event}"
     for language in ("en", "zh")
@@ -38,6 +37,7 @@ def _summary(policy, size, *, cer=0.01):
         },
         "validation": {
             "max_cer": cer,
+            "corpus_cer": cer,
             "clone_cosine_min": 0.5,
             "clone_p10_min": 0.4,
             "leakage_max": 0.2,
