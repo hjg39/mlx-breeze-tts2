@@ -90,6 +90,18 @@ mlx-breeze-tts2 convert --source models/breeze-bf16 --bits 4 --output models/bre
 mlx-breeze-tts2 audit models/breeze-4bit
 ```
 
+The completion verifier is intentionally fail-closed. Point it at a directory
+containing `bf16/`, `8bit/`, and `4bit/` evidence bundles:
+
+```bash
+mlx-breeze-tts2 verify-evidence reports/full_matrix \
+  --output reports/full_matrix/completion_audit.json
+```
+
+It exits non-zero until strict artifact audits, the complete capability/event
+matrix, CER/speaker/leakage thresholds, interfaces, reproducibility, WAVs,
+Markdown, and listening HTML are all present and passing.
+
 ## HTTP compatibility
 
 ```bash
@@ -108,6 +120,7 @@ Only one synthesis request runs at a time; overlapping requests receive HTTP
 
 ## Evidence and license
 
+- X/GitHub selection research: `docs/research/2026-08-31-hot-tts-selection.md`
 - Approved implementation spec: `docs/design/2026-08-31-approved-spec.md`
 - Baseline machine report and WAVs: `reports/baseline/`
 - Provenance and evidence status: `docs/PROVENANCE.md`

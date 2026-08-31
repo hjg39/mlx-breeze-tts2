@@ -9,6 +9,8 @@ no PyTorch or upstream Breeze runtime is required at inference time.
 import json
 import math
 import time
+from functools import wraps
+from inspect import signature
 from pathlib import Path
 from typing import Any, Dict, Generator, Optional, Union
 
@@ -17,6 +19,7 @@ import mlx.nn as nn
 from mlx.utils import tree_flatten
 
 from .audio import load_audio
+from .config import ModelConfig
 from .core import llama, qwen3
 from .core.base import create_attention_mask, scaled_dot_product_attention
 from .core.cache import KVCache
@@ -24,7 +27,31 @@ from .core.rope_utils import initialize_rope
 from .core.sample_utils import make_sampler
 from .results import GenerationResult
 
-from .config import ModelConfig
+
+def _reset_streaming_on_abort(method):
+    """Reset decoder state when a streaming generator is closed or errors."""
+    method_signature = signature(method)
+
+    @wraps(method)
+    def wrapped(*args, **kwargs):
+        bound = method_signature.bind_partial(*args, **kwargs)
+        stream = bound.arguments.get(
+            "stream", method_signature.parameters["stream"].default
+        )
+        completed = False
+        try:
+            yield from method(*args, **kwargs)
+            completed = True
+        finally:
+            if stream and not completed:
+                self = args[0]
+                tokenizer = getattr(self, "audio_tokenizer", None)
+                decoder = getattr(tokenizer, "decoder", None)
+                reset = getattr(decoder, "reset_streaming_state", None)
+                if callable(reset):
+                    reset()
+
+    return wrapped
 
 
 class _AudioEmbedding(nn.Module):
@@ -949,6 +976,7 @@ class Model(nn.Module):
         except Exception:  # pragma: no cover - only used by partial fakes
             return mx.zeros((0,), dtype=mx.float32)
 
+    @_reset_streaming_on_abort
     def generate(
         self,
         text: str,

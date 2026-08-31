@@ -1,6 +1,5 @@
 """Reproducible local capability benchmark with machine-readable evidence."""
 
-import html
 import json
 import math
 import platform
@@ -13,6 +12,7 @@ import numpy as np
 
 from .audio import write_audio
 from .loader import load, resolve_model_path
+from .reporting import benchmark_markdown, listening_html
 
 
 def _audio_metrics(audio: mx.array, sample_rate: int) -> dict:
@@ -28,34 +28,6 @@ def _audio_metrics(audio: mx.array, sample_rate: int) -> dict:
         if values.size
         else 0.0,
     }
-
-
-def _markdown(report: dict) -> str:
-    lines = [
-        "# MLX Breeze TTS 2 benchmark",
-        "",
-        f"- Created: `{report['created_at']}`",
-        f"- Model path: `{report['resolved_model_path']}`",
-        f"- Overall status: `{report['status']}`",
-        "",
-        "| Capability | Duration | Elapsed | RTF | Clipping | Status |",
-        "|---|---:|---:|---:|---:|---|",
-    ]
-    for item in report["samples"]:
-        lines.append(
-            f"| {item['capability']} | {item['duration_s']:.2f}s | "
-            f"{item['elapsed_s']:.2f}s | {item['rtf']:.2f} | "
-            f"{item['clipping_fraction']:.6f} | {item['status']} |"
-        )
-    lines.extend(
-        [
-            "",
-            "ASR, speaker similarity, leakage, and manual listening are explicitly "
-            "`pending` in this runtime report. Run the evaluation workflow before "
-            "making content, identity, or event-audibility claims.",
-        ]
-    )
-    return "\n".join(lines) + "\n"
 
 
 def run_benchmark(
@@ -168,11 +140,9 @@ def run_benchmark(
     }
     json_path = output / "summary.json"
     json_path.write_text(json.dumps(report, ensure_ascii=False, indent=2))
-    markdown = _markdown(report)
+    markdown = benchmark_markdown(report)
     (output / "report.md").write_text(markdown)
-    (output / "report.html").write_text(
-        "<!doctype html><meta charset='utf-8'><title>MLX Breeze benchmark</title>"
-        "<style>body{max-width:960px;margin:40px auto;font:16px system-ui;"
-        "white-space:pre-wrap}</style><body>" + html.escape(markdown) + "</body>"
-    )
+    rendered_html = listening_html(report)
+    (output / "index.html").write_text(rendered_html)
+    (output / "report.html").write_text(rendered_html)
     return json_path

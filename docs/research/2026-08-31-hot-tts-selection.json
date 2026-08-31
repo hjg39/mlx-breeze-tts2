@@ -1,0 +1,85 @@
+{
+  "schema_version": 1,
+  "captured_at": "2026-08-31T18:30:00+08:00",
+  "selected": "Breeze TTS 2",
+  "selection_status": "confirmed",
+  "github": [
+    {
+      "name": "Breeze TTS 2",
+      "url": "https://github.com/breezeblue-ai/breeze-tts",
+      "stars": 164,
+      "forks": 16,
+      "decision": "selected"
+    },
+    {
+      "name": "Audio8 TTS",
+      "url": "https://github.com/Audio8-AI/Audio8_TTS",
+      "stars": 1200,
+      "stars_approximate": true,
+      "forks": 103,
+      "decision": "alternate"
+    },
+    {
+      "name": "Sopro",
+      "url": "https://github.com/samuel-vitorino/sopro",
+      "stars": 937,
+      "forks": 38,
+      "decision": "alternate"
+    },
+    {
+      "name": "smalltts",
+      "url": "https://github.com/smallbraineng/smalltts",
+      "stars": 63,
+      "forks": 6,
+      "decision": "watch"
+    },
+    {
+      "name": "Wren-TTS",
+      "url": "https://github.com/shangeth/wren-tts",
+      "stars": 3,
+      "forks": 0,
+      "decision": "watch"
+    },
+    {
+      "name": "LuxTTS-mlx",
+      "url": "https://github.com/jishnuvenugopal/LuxTTS-mlx",
+      "stars": 1,
+      "forks": 0,
+      "decision": "excluded_existing_mlx"
+    }
+  ],
+  "x": [
+    {
+      "url": "https://x.com/BreezeBlueX/status/2092647083132273018",
+      "views": 123657,
+      "likes": 354,
+      "reposts": 44,
+      "replies": 21,
+      "bookmarks": 305
+    },
+    {
+      "url": "https://x.com/ArtificialAnlys/status/2092399623839326550",
+      "views": 384176,
+      "likes": 738,
+      "reposts": 72,
+      "replies": 18,
+      "bookmarks": 594
+    },
+    {
+      "url": "https://x.com/HuggingApps/status/2092532619598614848",
+      "views": 67380,
+      "likes": 244,
+      "reposts": 28,
+      "replies": 7,
+      "bookmarks": 259
+    }
+  ],
+  "evidence_conflicts": [
+    {
+      "claim": "50-language support",
+      "source": "X repost/quote",
+      "authoritative_boundary": "Official GitHub documents bilingual English/Chinese support only",
+      "resolution": "test_and_claim_en_zh_only"
+    }
+  ]
+}

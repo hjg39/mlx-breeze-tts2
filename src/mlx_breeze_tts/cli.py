@@ -46,6 +46,10 @@ def _parser() -> argparse.ArgumentParser:
     benchmark.add_argument("--ref-text")
     benchmark.add_argument("--seed", type=int, default=42)
 
+    verify = sub.add_parser("verify-evidence")
+    verify.add_argument("root", type=Path)
+    verify.add_argument("--output", type=Path)
+
     serve = sub.add_parser("serve")
     serve.add_argument("--model", default=DEFAULT_MODEL)
     serve.add_argument("--host", default="127.0.0.1")
@@ -93,6 +97,16 @@ def main(argv=None) -> int:
         )
         print(report)
         return 0
+    if args.command == "verify-evidence":
+        from .evidence import verify_evidence_bundle
+
+        report = verify_evidence_bundle(args.root)
+        rendered = json.dumps(report, indent=2)
+        if args.output:
+            args.output.parent.mkdir(parents=True, exist_ok=True)
+            args.output.write_text(rendered)
+        print(rendered)
+        return 0 if report["pass"] else 1
 
     import mlx.core as mx
 

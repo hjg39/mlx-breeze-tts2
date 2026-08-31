@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "root": "reports/full_matrix",
+  "required_variants": [
+    "bf16",
+    "8bit",
+    "4bit"
+  ],
+  "checked": [],
+  "issue_count": 3,
+  "issues": [
+    {
+      "variant": "bf16",
+      "gate": "summary",
+      "detail": "missing reports/full_matrix/bf16/summary.json"
+    },
+    {
+      "variant": "8bit",
+      "gate": "summary",
+      "detail": "missing reports/full_matrix/8bit/summary.json"
+    },
+    {
+      "variant": "4bit",
+      "gate": "summary",
+      "detail": "missing reports/full_matrix/4bit/summary.json"
+    }
+  ],
+  "pass": false
+}

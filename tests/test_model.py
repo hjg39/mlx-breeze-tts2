@@ -325,6 +325,51 @@ def test_stream_flushes_at_exact_interval_and_resets_state(monkeypatch):
     assert model.audio_tokenizer.decoder.reset_calls == 2
 
 
+def test_stream_close_resets_decoder_state(monkeypatch):
+    model = Model(tiny_config())
+
+    class Decoder:
+        decode_upsample_rate = 24000
+
+        def __init__(self):
+            self.reset_calls = 0
+
+        def reset_streaming_state(self):
+            self.reset_calls += 1
+
+        def streaming_step(self, codes):
+            return mx.zeros((1, 1, codes.shape[-1]))
+
+    class AudioTokenizer:
+        decode_upsample_rate = 24000
+
+        def __init__(self):
+            self.decoder = Decoder()
+
+    class Head:
+        def __call__(self, _hidden):
+            logits = mx.full((1, 9), -100.0)
+            logits[..., 1] = 100.0
+            return logits
+
+    model.audio_tokenizer = AudioTokenizer()
+    monkeypatch.setattr(
+        model, "_prompt_embeddings", lambda *_args, **_kwargs: mx.zeros((1, 1, 16))
+    )
+    monkeypatch.setattr(
+        model, "_depth_tokens", lambda first, *_args, **_kwargs: [first, 2, 3]
+    )
+    model.lm_head = Head()
+
+    generator = model.generate(
+        "test", temperature=0, top_k=0, stream=True, streaming_interval=1.0
+    )
+    next(generator)
+    assert model.audio_tokenizer.decoder.reset_calls == 1
+    generator.close()
+    assert model.audio_tokenizer.decoder.reset_calls == 2
+
+
 def test_early_eos_yields_silent_result_instead_of_raising(monkeypatch):
     model = Model(tiny_config())
 
