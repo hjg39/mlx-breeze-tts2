@@ -32,7 +32,7 @@ and `THIRD_PARTY_NOTICES.md`.
 | 4-bit voice design / clone / direction / ZH event / streaming on M3 Max | pass on precursor implementation | `reports/baseline/summary.json` and WAVs |
 | ASR content fidelity in five baseline cases | pass | Whisper large-v3-turbo, zero failures |
 | Clone speaker similarity | pass | ECAPA cosine `0.775864`, threshold `0.25` |
-| Metal-independent standalone tests | pass | 33 passed, 0 failed |
+| Metal-independent standalone tests | pass | 34 passed, 0 failed |
 | Approved acceptance-matrix coverage | pass | 23 deterministic cases; complete required capability/event set; fake-runtime report and real FastAPI contract tests |
 | Manual listening evidence workflow | pass | HTML JSON export plus validated, non-destructive CLI merge tests |
 | EN/ZH evaluation references | pass for local internal evaluation | `reports/full_matrix/input_manifest.json` and `input_validation.json`; files exist, mono 24 kHz PCM16, exact registry transcripts and SHA-256 verified |
@@ -40,7 +40,7 @@ and `THIRD_PARTY_NOTICES.md`.
 | Objective metric baseline cross-check | pass on precursor evidence | `reports/baseline/objective_recalculation.json`; max CER 0.0, leakage 0.2194, ECAPA cosine/P10 0.7759/0.7745 |
 | 4-bit safetensors/index static preflight | pass | `reports/baseline/checkpoint_static_audit.json`; 1,234 tensors, no index inconsistency |
 | Standalone MLX architecture/model tests | pending | 2 modules skipped because this execution sandbox cannot initialize Metal |
-| Standalone 4-bit real-device run | pending | current execution sandbox cannot initialize Metal |
+| Standalone 4-bit real-device run | pending | `reports/current_runtime_probe.json`; current execution sandbox cannot initialize Metal |
 | Official BF16 conversion and inference | pending | source artifact not yet downloaded in this run |
 | 8-bit conversion and inference | pending | depends on BF16 artifact |
 | PyTorch parity | missing evidence | paired upstream run not yet captured |
@@ -54,9 +54,10 @@ artifact and exact command/revision used.
 - The execution sandbox reports `No Metal device available`; this prevents a
   fresh standalone model load even though the earlier precursor run used the
   same M3 Max successfully.
-- The data volume currently has about 14 GiB free. A normal duplicate BF16
+- The data volume currently has about 12 GiB free. A normal duplicate BF16
   conversion remains too close to the disk limit, so `link-bf16` now creates a
   same-volume hard-linked candidate without duplicating safetensors blocks.
-- Browser security denied the official Hugging Face download. The pinned local
-  snapshot or explicit download permission is still required before BF16/8-bit
-  conversion can run.
+- Browser security denied the official Hugging Face download, and the command
+  sandbox currently cannot resolve Hugging Face/PyPI hosts. The pinned local
+  snapshot or an approved working download channel is still required before
+  BF16/8-bit conversion can run.

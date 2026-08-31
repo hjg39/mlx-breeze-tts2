@@ -11,9 +11,12 @@ def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="mlx-breeze-tts2")
     sub = parser.add_subparsers(dest="command", required=True)
     generate = sub.add_parser("generate")
-    generate.add_argument("--model", default=DEFAULT_MODEL)
+    generate.add_argument("model_pos", nargs="?", help="model path or Hugging Face id")
+    generate.add_argument("--model", dest="model_option")
     generate.add_argument("--text", required=True)
-    generate.add_argument("--instruction", "--instruct")
+    generate.add_argument(
+        "--instruction", "--instruct", default="Speak clearly and naturally."
+    )
     generate.add_argument("--ref-audio")
     generate.add_argument("--ref-text")
     generate.add_argument("--voice", default="S0")
@@ -24,7 +27,9 @@ def _parser() -> argparse.ArgumentParser:
     generate.add_argument("--top-k", type=int, default=50)
     generate.add_argument("--repetition-penalty", type=float, default=1.1)
     generate.add_argument("--seed", type=int, default=42)
-    generate.add_argument("--stream", action="store_true")
+    generate.add_argument(
+        "--stream", action=argparse.BooleanOptionalAction, default=True
+    )
     generate.add_argument("--streaming-interval", type=float, default=2.0)
     generate.add_argument("--output", type=Path, default=Path("output.wav"))
 
@@ -202,30 +207,33 @@ def main(argv=None) -> int:
 
     import mlx.core as mx
 
-    from .audio import write_audio
+    from .audio import write_audio, write_audio_chunks
     from .loader import load
 
-    model = load(args.model)
-    chunks = list(
-        model.generate(
-            text=args.text,
-            voice=args.voice,
-            instruct=args.instruction,
-            ref_audio=args.ref_audio,
-            ref_text=args.ref_text,
-            cfg_scale=args.cfg_scale,
-            max_tokens=args.max_tokens,
-            temperature=args.temperature,
-            top_p=args.top_p,
-            top_k=args.top_k,
-            repetition_penalty=args.repetition_penalty,
-            seed=args.seed,
-            stream=args.stream,
-            streaming_interval=args.streaming_interval,
-        )
+    model_id = args.model_option or args.model_pos or DEFAULT_MODEL
+    model = load(model_id)
+    generator = model.generate(
+        text=args.text,
+        voice=args.voice,
+        instruct=args.instruction,
+        ref_audio=args.ref_audio,
+        ref_text=args.ref_text,
+        cfg_scale=args.cfg_scale,
+        max_tokens=args.max_tokens,
+        temperature=args.temperature,
+        top_p=args.top_p,
+        top_k=args.top_k,
+        repetition_penalty=args.repetition_penalty,
+        seed=args.seed,
+        stream=args.stream,
+        streaming_interval=args.streaming_interval,
     )
-    audio = mx.concatenate([chunk.audio for chunk in chunks])
-    write_audio(args.output, audio, model.sample_rate)
+    if args.stream:
+        write_audio_chunks(args.output, generator, model.sample_rate)
+    else:
+        chunks = list(generator)
+        audio = mx.concatenate([chunk.audio for chunk in chunks])
+        write_audio(args.output, audio, model.sample_rate)
     print(args.output)
     return 0
 

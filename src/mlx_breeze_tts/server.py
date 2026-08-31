@@ -17,7 +17,7 @@ LOGGER = logging.getLogger(__name__)
 def create_app(model=None, model_id: str = DEFAULT_MODEL):
     try:
         from fastapi import FastAPI, File, Form, HTTPException, UploadFile
-        from fastapi.responses import JSONResponse, Response
+        from fastapi.responses import JSONResponse, StreamingResponse
     except ImportError as exc:  # pragma: no cover - optional dependency
         raise RuntimeError("Install mlx-breeze-tts2[server] to run the API") from exc
 
@@ -47,6 +47,10 @@ def create_app(model=None, model_id: str = DEFAULT_MODEL):
 
     app = FastAPI(title="MLX Breeze TTS 2", lifespan=lifespan)
 
+    def pcm_bytes(result):
+        waveform = np.asarray(result.audio, dtype=np.float32)
+        return (np.clip(waveform, -1, 1) * 32767).astype("<i2").tobytes()
+
     @app.get("/health")
     def health():
         if state["status"] != "ok":
@@ -73,6 +77,7 @@ def create_app(model=None, model_id: str = DEFAULT_MODEL):
         if not inference_lock.acquire(blocking=False):
             raise HTTPException(409, "another synthesis request is running")
         temp_path = None
+        generator = None
         try:
             if ref_audio is not None:
                 suffix = Path(ref_audio.filename or "reference.wav").suffix or ".wav"
@@ -91,14 +96,27 @@ def create_app(model=None, model_id: str = DEFAULT_MODEL):
                     ref_text=ref_text,
                     seed=42 if seed is None else seed,
                     max_tokens=1500,
+                    stream=True,
                 )
-                result = await asyncio.to_thread(next, generator)
+                first = await asyncio.to_thread(next, generator)
             except (ValueError, FileNotFoundError) as exc:
                 raise HTTPException(400, str(exc)) from exc
-            waveform = np.asarray(result.audio, dtype=np.float32)
-            pcm = (np.clip(waveform, -1, 1) * 32767).astype("<i2").tobytes()
-            return Response(
-                pcm,
+
+            def stream_pcm():
+                try:
+                    yield pcm_bytes(first)
+                    for result in generator:
+                        yield pcm_bytes(result)
+                finally:
+                    close = getattr(generator, "close", None)
+                    if close is not None:
+                        close()
+                    if temp_path is not None:
+                        temp_path.unlink(missing_ok=True)
+                    inference_lock.release()
+
+            return StreamingResponse(
+                stream_pcm(),
                 media_type="audio/pcm",
                 headers={
                     "X-Sample-Rate": "24000",
@@ -106,9 +124,14 @@ def create_app(model=None, model_id: str = DEFAULT_MODEL):
                     "Cache-Control": "no-store",
                 },
             )
-        finally:
+        except BaseException:
+            if generator is not None:
+                close = getattr(generator, "close", None)
+                if close is not None:
+                    close()
             if temp_path is not None:
                 temp_path.unlink(missing_ok=True)
             inference_lock.release()
+            raise
 
     return app

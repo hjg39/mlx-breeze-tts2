@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "timestamp_utc": "2026-08-31T11:41:37Z",
+  "host_os": "macOS 27.0 (26A5421a)",
+  "architecture": "arm64",
+  "model": "/Users/vanch/.cache/huggingface/hub/models--LunaFox--Breeze-TTS-2-mlx-4bit/snapshots/27be05f01bd8aad9628022c2bac6ded0119eef8a",
+  "checkpoint_static_audit": "pass",
+  "strict_runtime_status": "pending",
+  "environment_status": "fail",
+  "error_type": "RuntimeError",
+  "error": "[metal::load_device] No Metal device available. This typically occurs in headless, sandboxed, or virtualized macOS sessions where the GPU is not accessible.",
+  "claim": "This records an execution-environment limitation; it is not a model inference result."
+}

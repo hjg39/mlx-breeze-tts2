@@ -40,6 +40,19 @@ def test_generate_cli_defaults_match_approved_spec():
     assert args.top_k == 50
     assert args.repetition_penalty == 1.1
     assert args.max_tokens == 1500
+    assert args.instruction == "Speak clearly and naturally."
+    assert args.stream is True
+
+
+def test_generate_cli_accepts_upstream_positional_model_and_local_option():
+    positional = _parser().parse_args(["generate", "org/model", "--text", "hello"])
+    option = _parser().parse_args(
+        ["generate", "--model", "local/model", "--text", "hello", "--no-stream"]
+    )
+    assert positional.model_pos == "org/model"
+    assert positional.model_option is None
+    assert option.model_option == "local/model"
+    assert option.stream is False
 
 
 def test_http_health_and_pcm_contract():
@@ -48,7 +61,9 @@ def test_http_health_and_pcm_contract():
     class FakeModel:
         def generate(self, **kwargs):
             assert kwargs["text"] == "hello"
-            yield SimpleNamespace(audio=np.array([0.0, 0.5, -0.5], dtype=np.float32))
+            assert kwargs["stream"] is True
+            yield SimpleNamespace(audio=np.array([0.0, 0.5], dtype=np.float32))
+            yield SimpleNamespace(audio=np.array([-0.5], dtype=np.float32))
 
     with TestClient(create_app(model=FakeModel(), model_id="fake")) as client:
         health = client.get("/health")

@@ -10,7 +10,7 @@ inference passed on an Apple M3 Max; a fresh standalone Metal run, official BF16
 conversion, 8-bit run, PyTorch parity, and manual event listening remain
 `pending`.
 
-The current automated handoff is `33 passed, 2 Metal-dependent modules skipped`;
+The current automated handoff is `34 passed, 2 Metal-dependent modules skipped`;
 wheel and source distributions build successfully with
 `uv build --no-build-isolation`.
 
@@ -192,8 +192,9 @@ curl -X POST http://127.0.0.1:8000/v1/audio/speech \
 
 The response is mono 24 kHz little-endian PCM16 and includes
 `X-Sample-Rate: 24000`, `X-Sample-Format: s16le`, and `Cache-Control: no-store`.
-Only one synthesis request runs at a time; overlapping requests receive HTTP
-409. Reference audio and transcript must be supplied together.
+PCM chunks are emitted incrementally as inference advances. Only one synthesis
+request runs at a time; overlapping requests receive HTTP 409. Reference audio
+and transcript must be supplied together.
 
 ## Evidence and license
 

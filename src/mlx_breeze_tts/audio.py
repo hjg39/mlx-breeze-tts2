@@ -27,3 +27,19 @@ def write_audio(path: str | Path, audio: mx.array, sample_rate: int = 24_000) ->
     destination.parent.mkdir(parents=True, exist_ok=True)
     sf.write(destination, np.asarray(audio, dtype=np.float32), sample_rate)
     return destination
+
+
+def write_audio_chunks(path: str | Path, chunks, sample_rate: int = 24_000) -> Path:
+    """Write generated chunks incrementally as a mono PCM16 WAV file."""
+    destination = Path(path).expanduser()
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    with sf.SoundFile(
+        destination,
+        mode="w",
+        samplerate=sample_rate,
+        channels=1,
+        subtype="PCM_16",
+    ) as output:
+        for chunk in chunks:
+            output.write(np.asarray(chunk.audio, dtype=np.float32))
+    return destination
