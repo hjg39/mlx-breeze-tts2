@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+import re
 from pathlib import Path
 
 from .parity import EXACT_SECTIONS
@@ -33,6 +34,7 @@ REQUIRED_EVENTS = {
     "event_zh_sigh",
 }
 REQUIRED_INTERFACES = ("python", "cli", "http", "streaming")
+_REVISION_RE = re.compile(r"^[0-9a-f]{40}$")
 
 
 def _issue(issues: list[dict], variant: str, gate: str, detail: str) -> None:
@@ -98,6 +100,16 @@ def verify_evidence_bundle(root: str | Path) -> dict:
             _issue(issues, variant, "summary", f"invalid JSON: {exc}")
             continue
         checked.append(str(path))
+
+        if not _REVISION_RE.fullmatch(str(report.get("model_revision", ""))):
+            _issue(
+                issues,
+                variant,
+                "provenance",
+                "model_revision must be an immutable 40-character commit hash",
+            )
+        if not isinstance(report.get("model_provenance"), dict):
+            _issue(issues, variant, "provenance", "model_provenance is missing")
 
         audit = report.get("artifact_audit", {})
         if not audit.get("pass"):

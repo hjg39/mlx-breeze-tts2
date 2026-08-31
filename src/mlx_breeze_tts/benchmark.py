@@ -12,6 +12,7 @@ import numpy as np
 from .matrix import build_acceptance_matrix, matrix_coverage, reference_pair
 from .objective import objective_template
 from .reporting import render_report_bundle
+from .provenance import checkpoint_provenance
 
 
 def _resolve_model_path(model_id: str) -> Path:
@@ -154,6 +155,7 @@ def run_benchmark(
     output = Path(output).expanduser()
     output.mkdir(parents=True, exist_ok=True)
     resolved = _resolve_model_path(model_id)
+    provenance = checkpoint_provenance(resolved)
     load_started = time.perf_counter()
     model = _load_model(resolved)
     load_time = time.perf_counter() - load_started
@@ -305,6 +307,9 @@ def run_benchmark(
         "schema_version": 1,
         "created_at": datetime.now(timezone.utc).isoformat(),
         "model_id": model_id,
+        "model_revision": provenance.get("artifact_revision")
+        or provenance.get("upstream_revision"),
+        "model_provenance": provenance,
         "resolved_model_path": str(resolved),
         "hardware": platform.platform(),
         "seed": seed,

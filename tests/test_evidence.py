@@ -78,6 +78,8 @@ def _write_complete_variant(root: Path, variant: str):
     parity.write_text(json.dumps({"schema_version": 1, "pass": True, "checks": checks}))
     parity_sha256 = hashlib.sha256(parity.read_bytes()).hexdigest()
     summary = {
+        "model_revision": "a" * 40,
+        "model_provenance": {"artifact_revision": "a" * 40},
         "artifact_audit": {
             "pass": True,
             "missing": [],
@@ -121,6 +123,20 @@ def test_complete_synthetic_bundle_satisfies_schema(tmp_path):
     report = verify_evidence_bundle(tmp_path)
     assert report["pass"]
     assert report["issues"] == []
+
+
+def test_mutable_or_missing_model_revision_fails_provenance_gate(tmp_path):
+    for variant in REQUIRED_VARIANTS:
+        _write_complete_variant(tmp_path, variant)
+    path = tmp_path / "4bit/summary.json"
+    summary = json.loads(path.read_text())
+    summary["model_revision"] = "main"
+    path.write_text(json.dumps(summary))
+    report = verify_evidence_bundle(tmp_path)
+    assert any(
+        item["variant"] == "4bit" and item["gate"] == "provenance"
+        for item in report["issues"]
+    )
 
 
 def test_reviewed_summary_takes_precedence_over_raw_generation(tmp_path):

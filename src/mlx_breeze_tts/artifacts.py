@@ -12,6 +12,8 @@ from pathlib import Path
 
 from safetensors import safe_open
 
+from .provenance import inherited_upstream_identity
+
 _DTYPE_BYTES = {
     "BOOL": 1,
     "I8": 1,
@@ -105,9 +107,7 @@ def inspect_checkpoint(path: str | Path) -> dict:
             missing_from_files = sorted(indexed - actual)
             missing_from_index = sorted(actual - indexed)
             wrong_files = sorted(
-                key
-                for key in actual & indexed
-                if weight_map[key] != key_to_file[key]
+                key for key in actual & indexed if weight_map[key] != key_to_file[key]
             )
             index_report.update(
                 {
@@ -212,6 +212,9 @@ def materialize_linked_bf16(source: str | Path, output: str | Path) -> Path:
     if not config_path.is_file():
         raise FileNotFoundError(f"Config not found: {config_path}")
     config = json.loads(config_path.read_text())
+    upstream_source, upstream_revision = inherited_upstream_identity(
+        source_path, source_path, None
+    )
     if config.get("quantization") or config.get("quantization_config"):
         raise ValueError("Linked BF16 materialization requires an unquantized source")
     source_dtypes = set(source_audit["runtime_dtype_counts_after_sanitize"])
@@ -237,6 +240,8 @@ def materialize_linked_bf16(source: str | Path, output: str | Path) -> Path:
     config["torch_dtype"] = "bfloat16"
     config["mlx_breeze_tts"] = {
         "source": str(source_path),
+        "upstream_source": upstream_source,
+        "upstream_revision": upstream_revision,
         "dtype": "bfloat16",
         "bits": None,
         "group_size": None,

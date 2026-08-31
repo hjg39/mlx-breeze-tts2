@@ -14,6 +14,7 @@ from mlx.utils import tree_flatten
 from .config import ModelConfig
 from .loader import _apply_quantization, _load_weights, resolve_model_path
 from .model import Model
+from .provenance import inherited_upstream_identity
 
 
 def audit_checkpoint(path: str | Path) -> dict:
@@ -131,6 +132,9 @@ def convert(
         "quantization_config"
     )
     conversion_metadata = config.get("mlx_breeze_tts") or {}
+    upstream_source, upstream_revision = inherited_upstream_identity(
+        source, source_path, revision
+    )
     if source_quantization and not bits:
         raise ValueError(
             "BF16 conversion requires the official unquantized source checkpoint"
@@ -173,6 +177,8 @@ def convert(
     config["mlx_breeze_tts"] = {
         "source": str(source),
         "revision": revision,
+        "upstream_source": upstream_source,
+        "upstream_revision": upstream_revision,
         "dtype": dtype,
         "bits": bits,
         "group_size": group_size if bits else None,
