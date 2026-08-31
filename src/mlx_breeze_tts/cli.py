@@ -50,6 +50,13 @@ def _parser() -> argparse.ArgumentParser:
     linked.add_argument("--source", required=True, type=Path)
     linked.add_argument("--output", required=True, type=Path)
 
+    download = sub.add_parser("download-official")
+    download.add_argument(
+        "--output-report",
+        type=Path,
+        default=Path("reports/official_download.json"),
+    )
+
     inspect = sub.add_parser("inspect-checkpoint")
     inspect.add_argument("model", type=Path)
     inspect.add_argument("--output", type=Path)
@@ -163,6 +170,18 @@ def main(argv=None) -> int:
 
         destination = materialize_linked_bf16(args.source, args.output)
         print(destination)
+        return 0
+    if args.command == "download-official":
+        from .download import download_official_checkpoint
+
+        try:
+            snapshot, report = download_official_checkpoint(args.output_report)
+        except Exception as exc:
+            print(json.dumps({"status": "fail", "error": str(exc)}))
+            return 1
+        print(snapshot)
+        if report:
+            print(report)
         return 0
     if args.command == "inspect-checkpoint":
         from .artifacts import inspect_checkpoint

@@ -81,6 +81,15 @@ write_audio("output.wav", result.audio, result.sample_rate)
 The converter is fail-closed: source weights must load strictly and the saved
 artifact must pass a second key audit.
 
+Download the approved official revision into the shared Hugging Face cache.
+The command verifies the resolved 40-character revision and only writes its
+report after the required config and safetensors files are complete:
+
+```bash
+mlx-breeze-tts2 download-official \
+  --output-report reports/official_download.json
+```
+
 When disk space cannot safely hold both the 7.68 GB official snapshot and a
 second BF16 copy, create a same-volume hard-linked BF16 candidate. This keeps
 the immutable safetensors blocks shared while copying mutable metadata. It is
