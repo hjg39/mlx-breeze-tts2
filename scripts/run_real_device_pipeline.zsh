@@ -31,10 +31,10 @@ PY
 
 assert_json_value() {
   local file=$1
-  local path=$2
+  local field=$2
   local expected=$3
   local actual
-  actual=$(json_value "$file" "$path")
+  actual=$(json_value "$file" "$field")
   if [[ "$actual" != "$expected" ]]; then
     print -u2 "Refusing incomplete evidence: $file ($path=$actual, expected $expected)"
     return 1
