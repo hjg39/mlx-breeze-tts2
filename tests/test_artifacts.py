@@ -7,6 +7,7 @@ from safetensors.numpy import save_file
 
 from mlx_breeze_tts.artifacts import inspect_checkpoint, materialize_linked_bf16
 from mlx_breeze_tts.cli import _parser
+from mlx_breeze_tts.storage import copy_immutable_auxiliary
 
 
 def _fixture(root: Path) -> Path:
@@ -116,3 +117,53 @@ def test_copy_helper_links_safetensors(tmp_path, monkeypatch):
     metadata = json.loads((output / "config.json").read_text())["mlx_breeze_tts"]
     assert metadata["storage_mode"] == "hardlink"
     assert metadata["strict_metal_audit"] == "pending"
+
+
+def test_quantized_auxiliary_copy_hardlinks_immutable_assets(tmp_path):
+    source = tmp_path / "source"
+    source.mkdir()
+    (source / "config.json").write_text("source-config")
+    (source / "audit.json").write_text("source-audit")
+    (source / "model.safetensors").write_bytes(b"main")
+    (source / "model.safetensors.index.json").write_text("index")
+    codec = source / "audio_tokenizer"
+    codec.mkdir()
+    (codec / "model.safetensors").write_bytes(b"codec")
+    (codec / "config.json").write_text("codec-config")
+    destination = tmp_path / "destination"
+    destination.mkdir()
+
+    report = copy_immutable_auxiliary(source, destination)
+
+    assert not (destination / "config.json").exists()
+    assert not (destination / "audit.json").exists()
+    assert not (destination / "model.safetensors").exists()
+    assert not (destination / "model.safetensors.index.json").exists()
+    assert os.stat(codec / "model.safetensors").st_ino == os.stat(
+        destination / "audio_tokenizer/model.safetensors"
+    ).st_ino
+    assert os.stat(codec / "config.json").st_ino == os.stat(
+        destination / "audio_tokenizer/config.json"
+    ).st_ino
+    assert report["linked_files"] == 2
+    assert report["copied_files"] == 0
+
+
+def test_quantized_auxiliary_copy_falls_back_across_volumes(tmp_path, monkeypatch):
+    source = tmp_path / "source"
+    source.mkdir()
+    codec = source / "audio_tokenizer"
+    codec.mkdir()
+    (codec / "weights.bin").write_bytes(b"codec")
+    destination = tmp_path / "destination"
+    destination.mkdir()
+
+    def cross_device(*_args):
+        raise OSError("cross-device link")
+
+    monkeypatch.setattr("mlx_breeze_tts.storage.os.link", cross_device)
+    report = copy_immutable_auxiliary(source, destination)
+
+    assert (destination / "audio_tokenizer/weights.bin").read_bytes() == b"codec"
+    assert report["linked_files"] == 0
+    assert report["copied_files"] == 1

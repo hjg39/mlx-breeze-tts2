@@ -11,8 +11,10 @@ artifact. The converter exposes two deterministic policy candidates:
   attention and MLP modules.
 
 Norms are not eligible for MLX affine quantization and remain BF16. The external
-audio-tokenizer directory is copied unchanged and remains BF16 under both
-policies.
+audio-tokenizer directory remains BF16 under both policies. Its immutable files
+are hard-linked on the same APFS volume (with a copy fallback across volumes),
+so the four ablation candidates do not duplicate the codec weights. Root
+config and audit files are always regenerated and never linked.
 
 Generate candidates explicitly:
 

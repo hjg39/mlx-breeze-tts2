@@ -3,7 +3,6 @@
 import copy
 import hashlib
 import json
-import shutil
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -17,6 +16,7 @@ from .loader import _apply_quantization, _load_weights, resolve_model_path
 from .model import Model
 from .provenance import inherited_upstream_identity
 from .quantization import POLICY_VERSION, should_quantize_path, validate_policy
+from .storage import copy_immutable_auxiliary
 
 
 def audit_checkpoint(path: str | Path) -> dict:
@@ -89,7 +89,7 @@ def _quantize(
         "quantized_modules": sorted(set(quantized_modules)),
         "excluded_modules": sorted(set(excluded_modules)),
         "norm_policy": "bfloat16_not_eligible",
-        "codec_policy": "copied_bfloat16_not_quantized",
+        "codec_policy": "shared_bfloat16_not_quantized",
     }
 
 
@@ -188,19 +188,7 @@ def convert(
     mx.eval(model.parameters())
     _save_weights(model, destination)
 
-    for item in source_path.iterdir():
-        if item.name.startswith("model") and item.suffix == ".safetensors":
-            continue
-        if item.name == "model.safetensors.index.json":
-            continue
-        target = destination / item.name
-        if item.is_dir():
-            shutil.copytree(item, target, dirs_exist_ok=True)
-        elif item.is_file() and (
-            item.suffix in {".json", ".txt", ".model", ".md"}
-            or item.name.upper().startswith(("LICENSE", "NOTICE"))
-        ):
-            shutil.copy2(item, target)
+    auxiliary_storage = copy_immutable_auxiliary(source_path, destination)
     config["torch_dtype"] = dtype
     config["mlx_breeze_tts"] = {
         "source": str(source),
@@ -211,6 +199,7 @@ def convert(
         "bits": bits,
         "group_size": group_size if bits else None,
         "quantization_policy": policy_report,
+        "auxiliary_storage": auxiliary_storage,
         "converter_version": "0.1.0",
         "created_at": datetime.now(timezone.utc).isoformat(),
         "weight_sha256": {

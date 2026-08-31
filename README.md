@@ -132,6 +132,20 @@ mlx-breeze-tts2 verify-evidence reports/full_matrix \
   --output reports/full_matrix/completion_audit.json
 ```
 
+On this machine, the resumable real-device pipeline performs the pinned
+download, Metal preflight, linked BF16 preparation, both full/sensitive 8-bit
+and 4-bit conversions, all 23 generation cases, and automatic ASR/ECAPA merge:
+
+```bash
+cd /Users/vanch/mlx-breeze-tts2
+./scripts/run_real_device_pipeline.zsh
+```
+
+It never removes artifacts and refuses incomplete existing model or evidence
+directories. Completed stages are validated and skipped on rerun. PyTorch
+parity and eight-event manual listening remain explicit completion gates after
+the automated stages.
+
 It exits non-zero until strict artifact audits, the complete capability/event
 matrix, CER/speaker/leakage thresholds, interfaces, reproducibility, WAVs,
 Markdown, and listening HTML are all present and passing. It also requires
