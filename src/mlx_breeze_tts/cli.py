@@ -4,11 +4,7 @@ import argparse
 import json
 from pathlib import Path
 
-import mlx.core as mx
-
-from .audio import write_audio
-from .conversion import audit_checkpoint, convert
-from .loader import DEFAULT_MODEL, load
+DEFAULT_MODEL = "LunaFox/Breeze-TTS-2-mlx-4bit"
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -60,10 +56,14 @@ def _parser() -> argparse.ArgumentParser:
 def main(argv=None) -> int:
     args = _parser().parse_args(argv)
     if args.command in {"audit", "audit-checkpoint"}:
+        from .conversion import audit_checkpoint
+
         report = audit_checkpoint(args.model)
         print(json.dumps(report, indent=2))
         return 0 if report["pass"] else 1
     if args.command == "convert":
+        from .conversion import convert
+
         destination = convert(
             args.source,
             args.output,
@@ -93,6 +93,11 @@ def main(argv=None) -> int:
         )
         print(report)
         return 0
+
+    import mlx.core as mx
+
+    from .audio import write_audio
+    from .loader import load
 
     model = load(args.model)
     chunks = list(

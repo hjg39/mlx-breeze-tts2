@@ -1,10 +1,16 @@
 import pytest
+import subprocess
+import sys
 
-try:
-    import mlx.core as mx
-    import mlx.nn  # noqa: F401 - forces device initialization for the skip gate
-except (ImportError, RuntimeError) as exc:  # pragma: no cover - no Metal host
-    pytest.skip(f"MLX device unavailable: {exc}", allow_module_level=True)
+probe = subprocess.run(
+    [sys.executable, "-c", "import mlx.core; import mlx.nn"],
+    capture_output=True,
+    text=True,
+)
+if probe.returncode:  # pragma: no cover - no Metal host
+    pytest.skip("MLX device unavailable", allow_module_level=True)
+
+import mlx.core as mx
 
 from mlx_breeze_tts.model import Model, _t5gemma2_attention_mask
 from mlx_breeze_tts.config import ModelConfig

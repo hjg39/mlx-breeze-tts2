@@ -4,11 +4,12 @@ import asyncio
 import logging
 import tempfile
 import threading
+from contextlib import asynccontextmanager, suppress
 from pathlib import Path
 
 import numpy as np
 
-from .loader import DEFAULT_MODEL, load
+DEFAULT_MODEL = "LunaFox/Breeze-TTS-2-mlx-4bit"
 
 LOGGER = logging.getLogger(__name__)
 
@@ -20,22 +21,31 @@ def create_app(model=None, model_id: str = DEFAULT_MODEL):
     except ImportError as exc:  # pragma: no cover - optional dependency
         raise RuntimeError("Install mlx-breeze-tts2[server] to run the API") from exc
 
-    app = FastAPI(title="MLX Breeze TTS 2")
     state = {"model": model, "status": "ok" if model is not None else "loading"}
     inference_lock = threading.Lock()
 
     async def load_in_background():
         try:
+            from .loader import load
+
             state["model"] = await asyncio.to_thread(load, model_id)
             state["status"] = "ok"
         except Exception:
             state["status"] = "error"
             LOGGER.exception("Breeze model initialization failed")
 
-    @app.on_event("startup")
-    async def start_loader():
+    @asynccontextmanager
+    async def lifespan(_app):
         if state["model"] is None:
             state["load_task"] = asyncio.create_task(load_in_background())
+        yield
+        task = state.get("load_task")
+        if task is not None and not task.done():
+            task.cancel()
+            with suppress(asyncio.CancelledError):
+                await task
+
+    app = FastAPI(title="MLX Breeze TTS 2", lifespan=lifespan)
 
     @app.get("/health")
     def health():

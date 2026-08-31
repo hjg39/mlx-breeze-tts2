@@ -1,12 +1,18 @@
 """Download-free architecture and checkpoint-loading regressions for Breeze."""
 
 import pytest
+import subprocess
+import sys
 
-try:
-    import mlx.core as mx
-    import mlx.nn  # noqa: F401 - forces device initialization for the skip gate
-except (ImportError, RuntimeError) as exc:  # pragma: no cover - CI without Metal
-    pytest.skip(f"MLX device unavailable: {exc}", allow_module_level=True)
+probe = subprocess.run(
+    [sys.executable, "-c", "import mlx.core; import mlx.nn"],
+    capture_output=True,
+    text=True,
+)
+if probe.returncode:  # pragma: no cover - CI without Metal
+    pytest.skip("MLX device unavailable", allow_module_level=True)
+
+import mlx.core as mx
 
 from mlx_breeze_tts.model import (
     Model,
