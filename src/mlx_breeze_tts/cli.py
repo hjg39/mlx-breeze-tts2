@@ -21,13 +21,13 @@ def _parser() -> argparse.ArgumentParser:
     generate.add_argument("--ref-audio")
     generate.add_argument("--ref-text")
     generate.add_argument("--voice", default="S0")
-    generate.add_argument("--cfg-scale", type=float)
-    generate.add_argument("--max-tokens", type=int, default=750)
+    generate.add_argument("--cfg-scale", type=float, default=1.0)
+    generate.add_argument("--max-tokens", "--max-new-tokens", type=int, default=1500)
     generate.add_argument("--temperature", type=float, default=0.9)
     generate.add_argument("--top-p", type=float, default=1.0)
     generate.add_argument("--top-k", type=int, default=50)
-    generate.add_argument("--repetition-penalty", type=float, default=1.0)
-    generate.add_argument("--seed", type=int)
+    generate.add_argument("--repetition-penalty", type=float, default=1.1)
+    generate.add_argument("--seed", type=int, default=42)
     generate.add_argument("--stream", action="store_true")
     generate.add_argument("--streaming-interval", type=float, default=2.0)
     generate.add_argument("--output", type=Path, default=Path("output.wav"))
@@ -40,8 +40,15 @@ def _parser() -> argparse.ArgumentParser:
     conversion.add_argument("--bits", type=int, choices=[4, 8])
     conversion.add_argument("--group-size", type=int, default=64)
 
-    audit = sub.add_parser("audit")
+    audit = sub.add_parser("audit", aliases=["audit-checkpoint"])
     audit.add_argument("model")
+
+    benchmark = sub.add_parser("benchmark")
+    benchmark.add_argument("--model", default=DEFAULT_MODEL)
+    benchmark.add_argument("--output", type=Path, required=True)
+    benchmark.add_argument("--ref-audio")
+    benchmark.add_argument("--ref-text")
+    benchmark.add_argument("--seed", type=int, default=42)
 
     serve = sub.add_parser("serve")
     serve.add_argument("--model", default=DEFAULT_MODEL)
@@ -52,7 +59,7 @@ def _parser() -> argparse.ArgumentParser:
 
 def main(argv=None) -> int:
     args = _parser().parse_args(argv)
-    if args.command == "audit":
+    if args.command in {"audit", "audit-checkpoint"}:
         report = audit_checkpoint(args.model)
         print(json.dumps(report, indent=2))
         return 0 if report["pass"] else 1
@@ -73,6 +80,18 @@ def main(argv=None) -> int:
         from .server import create_app
 
         uvicorn.run(create_app(model_id=args.model), host=args.host, port=args.port)
+        return 0
+    if args.command == "benchmark":
+        from .benchmark import run_benchmark
+
+        report = run_benchmark(
+            args.model,
+            args.output,
+            ref_audio=args.ref_audio,
+            ref_text=args.ref_text,
+            seed=args.seed,
+        )
+        print(report)
         return 0
 
     model = load(args.model)

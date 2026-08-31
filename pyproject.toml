@@ -8,6 +8,7 @@ version = "0.1.0"
 description = "Standalone Breeze TTS 2 inference, conversion, and serving on Apple Silicon with MLX"
 readme = "README.md"
 license = "MIT"
+license-files = ["LICENSE", "THIRD_PARTY_NOTICES.md"]
 requires-python = ">=3.10"
 dependencies = [
   "huggingface-hub>=0.27",
@@ -24,6 +25,7 @@ dev = ["pytest>=8", "ruff>=0.9"]
 
 [project.scripts]
 mlx-breeze-tts2 = "mlx_breeze_tts.cli:main"
+mlx-breeze = "mlx_breeze_tts.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

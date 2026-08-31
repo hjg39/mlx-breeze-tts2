@@ -778,6 +778,8 @@ class Model(nn.Module):
                     "Breeze supports exactly one reference transcript per generation."
                 )
             ref_text = ref_text[0]
+        if ref_audio is None and ref_text is not None:
+            raise ValueError("Breeze voice cloning requires ref_audio with ref_text.")
         if ref_audio is not None and not ref_text:
             raise ValueError("Breeze voice cloning requires ref_text with ref_audio.")
         speaker = self._speaker(voice)
@@ -954,18 +956,22 @@ class Model(nn.Module):
         instruct: Optional[str] = None,
         ref_audio: Optional[Union[str, Path, mx.array]] = None,
         ref_text: Optional[str] = None,
-        cfg_scale: Optional[float] = None,
-        max_tokens: int = 750,
+        cfg_scale: Optional[float] = 1.0,
+        max_tokens: int = 1500,
         temperature: float = 0.9,
         top_p: float = 1.0,
         top_k: int = 50,
-        repetition_penalty: float = 1.0,
-        seed: Optional[int] = None,
+        repetition_penalty: float = 1.1,
+        seed: Optional[int] = 42,
         stream: bool = False,
         streaming_interval: float = 2.0,
         **_: object,
     ) -> Generator[GenerationResult, None, None]:
         """Generate Breeze audio for voice design, cloning, or direction."""
+        if not isinstance(text, str) or not text.strip():
+            raise ValueError("text must be a non-empty string.")
+        if seed is not None and (not isinstance(seed, int) or seed < 0):
+            raise ValueError("seed must be a non-negative integer or None.")
         if seed is not None:
             mx.random.seed(seed)
         if max_tokens <= 0:
@@ -978,8 +984,8 @@ class Model(nn.Module):
             raise ValueError("top_p must be between 0 and 1.")
         if repetition_penalty <= 0:
             raise ValueError("repetition_penalty must be positive.")
-        if cfg_scale is not None and not math.isfinite(cfg_scale):
-            raise ValueError("cfg_scale must be finite.")
+        if cfg_scale is not None and (not math.isfinite(cfg_scale) or cfg_scale <= 0):
+            raise ValueError("cfg_scale must be finite and positive.")
         if streaming_interval <= 0:
             raise ValueError("streaming_interval must be positive.")
 
@@ -1016,12 +1022,25 @@ class Model(nn.Module):
         if stream:
             self.audio_tokenizer.decoder.reset_streaming_state()
 
+        chunk_index = 0
+        cumulative_samples = 0
+        previous_yield = started
+
         def stream_result(audio: mx.array, token_count: int, final: bool):
+            nonlocal chunk_index, cumulative_samples, previous_yield
             mx.eval(audio)
             samples = audio.shape[0]
-            elapsed = time.perf_counter() - started
-            tokens_per_sec = token_count / elapsed if elapsed > 0 else 0.0
-            samples_per_sec = samples / elapsed if elapsed > 0 else 0.0
+            now = time.perf_counter()
+            cumulative_elapsed = now - started
+            chunk_elapsed = now - previous_yield
+            previous_yield = now
+            cumulative_samples += samples
+            audio_seconds = samples / self.sample_rate
+            cumulative_audio = cumulative_samples / self.sample_rate
+            tokens_per_sec = token_count / chunk_elapsed if chunk_elapsed > 0 else 0.0
+            samples_per_sec = samples / chunk_elapsed if chunk_elapsed > 0 else 0.0
+            current_index = chunk_index
+            chunk_index += 1
             return GenerationResult(
                 audio=audio,
                 samples=samples,
@@ -1029,7 +1048,7 @@ class Model(nn.Module):
                 segment_idx=0,
                 token_count=token_count,
                 audio_duration=f"00:00:{samples / self.sample_rate:06.3f}",
-                real_time_factor=elapsed / max(samples / self.sample_rate, 1e-6),
+                real_time_factor=chunk_elapsed / max(audio_seconds, 1e-6),
                 prompt={
                     "tokens": token_count,
                     "tokens-per-sec": tokens_per_sec,
@@ -1038,10 +1057,17 @@ class Model(nn.Module):
                     "samples": samples,
                     "samples-per-sec": samples_per_sec,
                 },
-                processing_time_seconds=elapsed,
+                processing_time_seconds=chunk_elapsed,
                 peak_memory_usage=mx.get_peak_memory() / 1e9,
                 is_streaming_chunk=True,
                 is_final_chunk=final,
+                chunk_index=current_index,
+                time_to_first_audio_seconds=(
+                    cumulative_elapsed if current_index == 0 else None
+                ),
+                chunk_processing_time_seconds=chunk_elapsed,
+                cumulative_processing_time_seconds=cumulative_elapsed,
+                cumulative_audio_seconds=cumulative_audio,
             )
 
         for _ in range(max_tokens):

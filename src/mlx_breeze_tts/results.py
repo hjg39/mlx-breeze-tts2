@@ -34,3 +34,8 @@ class GenerationResult:
     peak_memory_usage: float
     is_streaming_chunk: bool = False
     is_final_chunk: bool = False
+    chunk_index: int = 0
+    time_to_first_audio_seconds: float | None = None
+    chunk_processing_time_seconds: float | None = None
+    cumulative_processing_time_seconds: float | None = None
+    cumulative_audio_seconds: float | None = None
