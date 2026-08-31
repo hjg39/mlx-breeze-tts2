@@ -19,7 +19,8 @@ wheel and source distributions build successfully with
 - Voice design from text plus instruction
 - Zero-shot voice cloning from one reference WAV and exact transcript
 - Voice direction by combining a reference pair and an instruction
-- English `(laugh)` / `(sigh)` and Chinese `[笑]` / `[叹气]` event syntax
+- English `(laugh)` / `(cough)` / `(clears throat)` / `(sigh)` and Chinese
+  `[笑]` / `[咳嗽]` / `[清嗓子]` / `[叹气]` event syntax
 - Non-streaming and incremental generation
 - Temperature, top-p, top-k, repetition penalty, CFG, seed, and token limits
 - Python API, command line, and upstream-compatible FastAPI endpoint
@@ -280,6 +281,7 @@ and transcript must be supplied together.
 
 - X/GitHub selection research: `docs/research/2026-08-31-hot-tts-selection.md`
 - Approved implementation spec: `docs/design/2026-08-31-approved-spec.md`
+- Requirement-by-requirement completion audit: `docs/COMPLETION_AUDIT.md`
 - Baseline machine report and WAVs: `reports/baseline/`
 - Provenance and evidence status: `docs/PROVENANCE.md`
 
