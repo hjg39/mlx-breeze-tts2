@@ -20,8 +20,8 @@ release-complete claim.
 | Objective quality gates | pass | real Whisper and ECAPA results in release-v2: corpus CER `0.01042/0.01786/0.00595`, clone cosine and P10 above `0.25`, leakage below `0.65` |
 | Performance and resource measurements | pass | every summary records load time, load/total peak memory, steady-state and long-text RTF, and streaming TTFA |
 | JSON, Markdown, WAV, and HTML evidence | pass | `reports/release-v2/{bf16,8bit,4bit}` and their listening pages |
-| Tests, compilation, and package build | pass | 127 tests pass; `compileall`, `uv build`, shell syntax, lock check, and `git diff --check` pass on the project machine |
-| Final reviewed release bundle and quantization selection | pending | `reports/release-v2/pre_review_audit-v2.json` has 29 issues: 24 event verdicts, 3 listening documents, and 2 review-dependent quantization selections |
+| Tests, compilation, and package build | pass | 131 tests pass; `compileall`, `uv build`, shell syntax, lock check, and `git diff --check` pass on the project machine |
+| Final reviewed release bundle and quantization selection | pending | full 8-bit/4-bit candidates have hash-bound terminal parity failures; sensitive-BF16 candidates remain pending only on their reviews. The release verifier has 29 downstream issues: 24 event verdicts, 3 listening documents, and 2 review-dependent selections |
 | License and provenance boundaries | pass | `LICENSE`, `THIRD_PARTY_NOTICES.md`, `docs/PROVENANCE.md`; weights, derivatives, and outputs remain research/noncommercial |
 
 ## Remaining completion action
@@ -29,6 +29,6 @@ release-complete claim.
 Export `manual_reviews.json` from each BF16, 8-bit, and 4-bit listening page,
 then run `scripts/finalize_release_evidence.zsh` with those three immutable
 review documents. The finalizer binds their hashes and model revision, performs
-the two quantization selections, renders final reports, and invokes the
+the two fail/pending-aware quantization selections, renders final reports, and invokes the
 fail-closed bundle verifier. Only a passing final verifier result satisfies the
 approved completion definition.

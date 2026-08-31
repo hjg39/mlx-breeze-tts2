@@ -26,6 +26,54 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def parity_result_status(
+    evidence_path: str | Path,
+    *,
+    expected_sha256: str | None = None,
+    model_revision: str | None = None,
+) -> str:
+    """Return pass/fail only for a complete, hash-verifiable comparison."""
+
+    evidence_path = Path(evidence_path).expanduser().resolve()
+    try:
+        if expected_sha256 is not None and _sha256(evidence_path) != expected_sha256:
+            return "pending"
+        report = json.loads(evidence_path.read_text())
+        source_path = Path(report["pytorch_snapshot"]).expanduser().resolve()
+        candidate_path = Path(report["mlx_snapshot"]).expanduser().resolve()
+        if (
+            report.get("schema_version") != 1
+            or _sha256(source_path) != report.get("pytorch_sha256")
+            or _sha256(candidate_path) != report.get("mlx_sha256")
+        ):
+            return "pending"
+        source = json.loads(source_path.read_text())
+        candidate = json.loads(candidate_path.read_text())
+    except (KeyError, OSError, json.JSONDecodeError):
+        return "pending"
+
+    required = set(EXACT_SECTIONS) | {
+        "model_id",
+        "model_revision",
+        "case_id",
+        "intermediate_tensors",
+    }
+    checks = report.get("checks") or {}
+    statuses = [checks.get(name, {}).get("status") for name in required]
+    if any(status not in {"pass", "fail"} for status in statuses):
+        return "pending"
+    revisions = {source.get("model_revision"), candidate.get("model_revision")}
+    if len(revisions) != 1 or None in revisions or "" in revisions:
+        return "pending"
+    if model_revision is not None and revisions != {model_revision}:
+        return "pending"
+    passed = all(status == "pass" for status in statuses)
+    expected_status = "pass" if passed else "fail"
+    if report.get("pass") is not passed or report.get("status") != expected_status:
+        return "pending"
+    return expected_status
+
+
 def compare_parity_snapshots(
     pytorch_path: str | Path,
     mlx_path: str | Path,
@@ -133,22 +181,17 @@ def apply_parity_evidence(
         raise ValueError("Output must differ from the source summary")
     summary = json.loads(summary_path.read_text())
     evidence = json.loads(evidence_path.read_text())
-    if evidence.get("schema_version") != 1 or evidence.get("pass") is not True:
-        raise ValueError("Parity evidence must be a passing schema_version 1 report")
-    required = set(EXACT_SECTIONS) | {
-        "model_id",
-        "model_revision",
-        "case_id",
-        "intermediate_tensors",
-    }
-    checks = evidence.get("checks", {})
-    if any(checks.get(name, {}).get("status") != "pass" for name in required):
-        raise ValueError("Parity evidence is missing required passing checks")
+    status = parity_result_status(
+        evidence_path, model_revision=summary.get("model_revision")
+    )
+    if status == "pending":
+        raise ValueError("Parity evidence is incomplete or its hashes do not match")
     validation = summary.setdefault("validation", {})
-    validation["pytorch_parity"] = "pass"
+    validation["pytorch_parity"] = status
     validation["pytorch_parity_evidence"] = {
         "path": str(evidence_path),
         "sha256": _sha256(evidence_path),
+        "status": status,
         "atol": evidence.get("atol"),
         "rtol": evidence.get("rtol"),
     }

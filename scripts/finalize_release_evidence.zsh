@@ -38,10 +38,25 @@ for index in 1 2 3; do
   destination="reports/release-v2/$variant/manual_reviews.json"
   require_file "$source"
   require_absent "$destination"
-  cp "$source" "$destination"
+  cli validate-listening-review \
+    "reports/release-v2/$variant/summary.http.json" "$source" --release
 done
 
 require_absent reports/release-v2/bf16/summary.final.json
+for bits in 8 4; do
+  directory="reports/release-v2/${bits}bit"
+  require_file "reports/ablation/${bits}bit-full/summary.candidate.json"
+  require_absent "$directory/summary.reviewed.json"
+  require_absent "$directory/quantization-comparison.json"
+  require_absent "$directory/summary.final.json"
+done
+require_absent reports/release-v2/completion_audit.json
+
+for index in 1 2 3; do
+  variant=${variants[$index]}
+  cp "${reviews[$index]}" "reports/release-v2/$variant/manual_reviews.json"
+done
+
 cli apply-listening-review \
   reports/release-v2/bf16/summary.http.json \
   reports/release-v2/bf16/manual_reviews.json \
@@ -49,14 +64,10 @@ cli apply-listening-review \
 
 for bits in 8 4; do
   directory="reports/release-v2/${bits}bit"
-  full="reports/ablation/${bits}bit-full/summary.metrics-corpus-v2.json"
+  full="reports/ablation/${bits}bit-full/summary.candidate.json"
   reviewed="$directory/summary.reviewed.json"
   comparison="$directory/quantization-comparison.json"
   final="$directory/summary.final.json"
-  require_file "$full"
-  require_absent "$reviewed"
-  require_absent "$comparison"
-  require_absent "$final"
   cli apply-listening-review \
     "$directory/summary.http.json" \
     "$directory/manual_reviews.json" \

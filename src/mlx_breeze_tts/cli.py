@@ -85,6 +85,11 @@ def _parser() -> argparse.ArgumentParser:
     reviews.add_argument("reviews", type=Path)
     reviews.add_argument("--output", type=Path, required=True)
 
+    review_validate = sub.add_parser("validate-listening-review")
+    review_validate.add_argument("summary", type=Path)
+    review_validate.add_argument("reviews", type=Path)
+    review_validate.add_argument("--release", action="store_true")
+
     inputs = sub.add_parser("validate-inputs")
     inputs.add_argument("manifest", type=Path)
     inputs.add_argument("--output", type=Path)
@@ -244,6 +249,12 @@ def main(argv=None) -> int:
         output = apply_reviews(args.summary, args.reviews, args.output)
         print(output)
         return 0
+    if args.command == "validate-listening-review":
+        from .reviews import validate_reviews
+
+        report = validate_reviews(args.summary, args.reviews, release=args.release)
+        print(json.dumps(report, indent=2))
+        return 0 if report["pass"] else 1
     if args.command == "validate-inputs":
         from .inputs import validate_input_manifest
 

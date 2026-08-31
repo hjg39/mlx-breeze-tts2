@@ -44,6 +44,13 @@ def test_generate_cli_defaults_match_approved_spec():
     assert args.stream is True
 
 
+def test_release_review_validator_cli_surface():
+    args = _parser().parse_args(
+        ["validate-listening-review", "summary.json", "reviews.json", "--release"]
+    )
+    assert args.release is True
+
+
 def test_generate_cli_accepts_upstream_positional_model_and_local_option():
     positional = _parser().parse_args(["generate", "org/model", "--text", "hello"])
     option = _parser().parse_args(

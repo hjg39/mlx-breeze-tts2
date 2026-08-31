@@ -6,7 +6,7 @@ import re
 from pathlib import Path
 
 from .http_evidence import http_report_passes
-from .parity import EXACT_SECTIONS
+from .parity import parity_result_status
 
 REQUIRED_VARIANTS = ("bf16", "8bit", "4bit")
 REQUIRED_CAPABILITIES = {
@@ -49,31 +49,17 @@ def _number(value, default: float) -> float:
         return default
 
 
-def _parity_evidence_passes(validation: dict) -> bool:
+def _parity_evidence_passes(validation: dict, report: dict) -> bool:
     metadata = validation.get("pytorch_parity_evidence")
     if not isinstance(metadata, dict):
         return False
-    path = Path(str(metadata.get("path", ""))).expanduser()
-    if not path.is_file():
-        return False
-    digest = hashlib.sha256(path.read_bytes()).hexdigest()
-    if digest != metadata.get("sha256"):
-        return False
-    try:
-        report = json.loads(path.read_text())
-    except (OSError, json.JSONDecodeError):
-        return False
-    required = set(EXACT_SECTIONS) | {
-        "model_id",
-        "model_revision",
-        "case_id",
-        "intermediate_tensors",
-    }
-    checks = report.get("checks", {})
     return (
-        report.get("schema_version") == 1
-        and report.get("pass") is True
-        and all(checks.get(name, {}).get("status") == "pass" for name in required)
+        parity_result_status(
+            metadata.get("path", ""),
+            expected_sha256=metadata.get("sha256"),
+            model_revision=report.get("model_revision"),
+        )
+        == "pass"
     )
 
 
@@ -268,7 +254,7 @@ def verify_evidence_bundle(root: str | Path) -> dict:
                 "non-finite/clipping/repeated-tail/stream continuity checks not pass",
             )
         if validation.get("pytorch_parity") != "pass" or not _parity_evidence_passes(
-            validation
+            validation, report
         ):
             _issue(
                 issues,

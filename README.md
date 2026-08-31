@@ -10,7 +10,7 @@ upstream-compatible HTTP endpoint are implemented. Official BF16 plus policy-v2
 waveform, interface, performance, and precision-specific PyTorch parity gates.
 Manual event listening remains `pending`.
 
-The current automated handoff is `127 passed` on the project machine;
+The current automated handoff is `131 passed` on the project machine;
 wheel and source distributions build successfully with
 `uv build --no-build-isolation`.
 
@@ -240,8 +240,13 @@ and runs the independent bundle verifier:
   /path/to/4bit-manual_reviews.json
 ```
 
-The finalizer refuses to overwrite any existing review, reviewed summary,
-selection report, or final summary.
+Before writing anything, the finalizer validates all three documents against
+their immutable model revision and requires an explicit `audible` or `missing`
+verdict for every event. It refuses to overwrite any existing review, reviewed
+summary, selection report, or final summary. Quantization comparison treats
+missing evidence as `pending`, never as a reason to reject a candidate. The
+full-quantization candidates have separate hash-bound terminal parity failures;
+the sensitive-BF16 candidates still require the exported listening verdicts.
 
 If a benchmark predates an HTTP fix, capture and merge a revision-bound real
 probe without rerunning the 23 audio cases:

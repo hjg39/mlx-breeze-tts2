@@ -33,7 +33,7 @@ and `THIRD_PARTY_NOTICES.md`.
 | 4-bit voice design / clone / direction / ZH event / streaming on M3 Max | pass on precursor implementation | `reports/baseline/summary.json` and WAVs |
 | ASR content fidelity in five baseline cases | pass | Whisper large-v3-turbo, zero failures |
 | Clone speaker similarity | pass | ECAPA cosine `0.775864`, threshold `0.25` |
-| Standalone automated tests | pass | 127 passed, 0 failed on the project machine |
+| Standalone automated tests | pass | 131 passed, 0 failed on the project machine |
 | Approved acceptance-matrix coverage | pass | 23 deterministic cases; complete required capability/event set; fake-runtime report and real FastAPI contract tests |
 | Manual listening evidence workflow | pass; verdicts pending | HTML export records revision/timestamp; merge stores source path/SHA-256; verifier reopens the review and requires eight matching audible verdicts per artifact |
 | EN/ZH evaluation references | pass for local internal evaluation | `reports/full_matrix/input_manifest.json` and `input_validation.json`; files exist, mono 24 kHz PCM16, exact registry transcripts and SHA-256 verified |
@@ -42,7 +42,7 @@ and `THIRD_PARTY_NOTICES.md`.
 | Waveform/performance completion gates | pass | benchmark records load/RTF/TTFA/memory plus non-finite, clipping, repeated-tail, and stream-boundary diagnostics; verifier fails closed on missing evidence |
 | PyTorch parity evidence workflow | pass | clean official source checkout and environment manifest; paired BF16/8-bit/4-bit captures under `reports/parity/`; exact template/token/codec/mask/shape/argmax checks plus recorded precision-specific tensor tolerances |
 | Revision propagation and report identity | pass | HF snapshot revisions are resolved from paths; BF16→8/4-bit conversions inherit the original upstream identity; completion verifier rejects mutable/missing revisions |
-| Explicit quantization policy and static consistency | pass; listening-dependent selection pending | sensitive-BF16 v2 preserves the complete text encoder and depth decoder after v1 quality failures; exact module metadata, safetensors scale-key cross-check, and strict audits |
+| Explicit quantization policy and static consistency | pass; listening-dependent selection pending | sensitive-BF16 v2 preserves the complete text encoder and depth decoder; full 8-bit/4-bit candidates have hash-bound terminal parity failures, while missing evidence can no longer eliminate a candidate |
 | Low-disk auxiliary artifact storage | pass | quantized candidates hard-link immutable codec/tokenizer assets on the same volume, fall back to copies across volumes, and regenerate mutable config/audits |
 | Quantization ablation selection workflow | pass; real comparison pending | applies complete quality/interface/event/waveform/parity/performance gates, deterministic size/RTF selection, input hashes, non-destructive merge, and independent verifier checks |
 | Objective metric baseline cross-check | pass on precursor evidence | `reports/baseline/objective_recalculation.json`; max CER 0.0, leakage 0.2194, ECAPA cosine/P10 0.7759/0.7745 |

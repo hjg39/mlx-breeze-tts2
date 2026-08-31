@@ -56,8 +56,15 @@ def test_parity_comparison_fails_on_numeric_or_exact_mismatch(tmp_path):
     assert report["checks"]["intermediate_tensors"]["status"] == "fail"
     summary = tmp_path / "summary.json"
     summary.write_text(json.dumps({"validation": {}}))
-    with pytest.raises(ValueError, match="passing"):
-        apply_parity_evidence(summary, evidence, tmp_path / "out.json")
+    output = tmp_path / "out.json"
+    apply_parity_evidence(summary, evidence, output)
+    merged = json.loads(output.read_text())
+    assert merged["validation"]["pytorch_parity"] == "fail"
+    assert merged["validation"]["pytorch_parity_evidence"]["status"] == "fail"
+
+    pytorch.write_text("tampered")
+    with pytest.raises(ValueError, match="incomplete"):
+        apply_parity_evidence(summary, evidence, tmp_path / "tampered.json")
 
 
 def test_parity_rejects_invalid_tolerances(tmp_path):

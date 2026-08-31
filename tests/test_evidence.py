@@ -61,6 +61,11 @@ def _write_complete_variant(root: Path, variant: str):
         for capability in capabilities
     ]
     parity = directory / "parity.json"
+    pytorch_snapshot = directory / "pytorch.json"
+    mlx_snapshot = directory / "mlx.json"
+    snapshot = {"schema_version": 1, "model_revision": "a" * 40}
+    pytorch_snapshot.write_text(json.dumps(snapshot))
+    mlx_snapshot.write_text(json.dumps(snapshot))
     checks = {
         name: {"status": "pass"}
         for name in (
@@ -76,7 +81,22 @@ def _write_complete_variant(root: Path, variant: str):
             "intermediate_tensors",
         )
     }
-    parity.write_text(json.dumps({"schema_version": 1, "pass": True, "checks": checks}))
+    parity.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "pytorch_snapshot": str(pytorch_snapshot),
+                "pytorch_sha256": hashlib.sha256(
+                    pytorch_snapshot.read_bytes()
+                ).hexdigest(),
+                "mlx_snapshot": str(mlx_snapshot),
+                "mlx_sha256": hashlib.sha256(mlx_snapshot.read_bytes()).hexdigest(),
+                "status": "pass",
+                "pass": True,
+                "checks": checks,
+            }
+        )
+    )
     parity_sha256 = hashlib.sha256(parity.read_bytes()).hexdigest()
     reviews = directory / "manual_reviews.json"
     reviews.write_text(

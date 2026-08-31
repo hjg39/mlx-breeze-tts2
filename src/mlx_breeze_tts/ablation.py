@@ -7,6 +7,8 @@ import json
 import math
 from pathlib import Path
 
+from .parity import parity_result_status
+
 _EVENTS = {
     "event_en_laugh",
     "event_en_cough",
@@ -43,17 +45,22 @@ def _candidate(path: Path) -> dict:
     provenance = summary.get("model_provenance") or {}
     policy = provenance.get("quantization_policy") or {}
     validation = summary.get("validation") or {}
-    issues = []
+    failures = []
+    pending = []
     name = policy.get("name")
     if name not in {"full", "sensitive-bf16"}:
-        issues.append("missing supported quantization policy")
-    if not summary.get("artifact_audit", {}).get("pass"):
-        issues.append("artifact audit is not pass")
-    if any(
-        summary.get("interfaces", {}).get(name) != "pass"
-        for name in ("python", "cli", "http", "streaming")
-    ):
-        issues.append("public interfaces are not all pass")
+        pending.append("missing supported quantization policy")
+    audit_status = summary.get("artifact_audit", {}).get("pass")
+    if audit_status is False:
+        failures.append("artifact audit failed")
+    elif audit_status is not True:
+        pending.append("artifact audit is missing")
+    for interface in ("python", "cli", "http", "streaming"):
+        status = summary.get("interfaces", {}).get(interface)
+        if status == "fail":
+            failures.append(f"{interface} interface failed")
+        elif status != "pass":
+            pending.append(f"{interface} interface evidence is missing")
     thresholds = (
         (validation.get("corpus_cer"), lambda value: value <= 0.05, "corpus CER"),
         (
@@ -74,30 +81,49 @@ def _candidate(path: Path) -> dict:
     )
     for raw, predicate, label in thresholds:
         try:
-            passed = math.isfinite(float(raw)) and predicate(float(raw))
+            finite = math.isfinite(float(raw))
         except (TypeError, ValueError):
-            passed = False
-        if not passed:
-            issues.append(f"{label} threshold is not pass")
+            finite = False
+        if not finite:
+            pending.append(f"{label} evidence is missing")
+        elif not predicate(float(raw)):
+            failures.append(f"{label} threshold failed")
     for gate in (
         "seed_reproducibility",
         "sampling_path",
         "waveform_integrity",
-        "pytorch_parity",
     ):
-        if validation.get(gate) != "pass":
-            issues.append(f"{gate} is not pass")
+        status = validation.get(gate)
+        if status == "fail":
+            failures.append(f"{gate} failed")
+        elif status != "pass":
+            pending.append(f"{gate} evidence is missing")
+    parity_metadata = validation.get("pytorch_parity_evidence") or {}
+    parity_status = parity_result_status(
+        parity_metadata.get("path", ""),
+        expected_sha256=parity_metadata.get("sha256"),
+        model_revision=summary.get("model_revision"),
+    )
+    if parity_status == "fail":
+        failures.append("pytorch_parity failed")
+    elif parity_status != "pass":
+        pending.append("pytorch_parity evidence is incomplete")
     samples = {
         sample.get("capability"): sample for sample in summary.get("samples", [])
     }
-    if any(samples.get(name, {}).get("manual_event") != "audible" for name in _EVENTS):
-        issues.append("all eight manual event verdicts are not audible")
+    for event in _EVENTS:
+        verdict = samples.get(event, {}).get("manual_event")
+        if verdict == "missing":
+            failures.append(f"{event} was not audible")
+        elif verdict != "audible":
+            pending.append(f"{event} listening evidence is missing")
     performance = summary.get("performance") or {}
     if any(not _finite(performance.get(metric)) for metric in _PERFORMANCE):
-        issues.append("performance evidence is incomplete")
+        pending.append("performance evidence is incomplete")
     artifact_bytes = provenance.get("artifact_bytes")
     if not _finite(artifact_bytes) or float(artifact_bytes) <= 0:
-        issues.append("artifact size is missing")
+        pending.append("artifact size is missing")
+    status = "fail" if failures else "pending" if pending else "pass"
     return {
         "summary": str(path),
         "sha256": _sha256(path),
@@ -106,8 +132,11 @@ def _candidate(path: Path) -> dict:
         "model_revision": summary.get("model_revision"),
         "artifact_bytes": artifact_bytes,
         "steady_state_rtf": performance.get("steady_state_rtf"),
-        "issues": issues,
-        "pass": not issues,
+        "status": status,
+        "failures": failures,
+        "pending": pending,
+        "issues": failures + pending,
+        "pass": status == "pass",
     }
 
 
@@ -132,7 +161,9 @@ def compare_quantization_candidates(
         issues.append("candidates must use the same immutable model revision")
     passing = [candidate for candidate in candidates if candidate["pass"]]
     selected = None
-    if not passing:
+    if any(candidate["status"] == "pending" for candidate in candidates):
+        issues.append("candidate evidence is incomplete")
+    elif not passing:
         issues.append("neither candidate passes the approved quality gates")
     elif len(passing) == 1:
         selected = passing[0]

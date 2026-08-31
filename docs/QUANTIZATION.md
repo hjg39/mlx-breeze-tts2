@@ -54,6 +54,16 @@ sensitive policy as an exact tie-break. Inputs and the selected summary are
 hashed. `verify-evidence` independently checks the report hash, precision,
 revision, and selected policy.
 
+Candidate state is tri-valued. A measured threshold or hash-verifiable parity
+failure is `fail`; absent listening, performance, interface, or parity evidence
+is `pending`; only complete passing evidence is `pass`. The comparator never
+selects another candidate merely because one candidate is pending. A terminal
+failure may stop further evaluation only when its source report and paired
+snapshots are present and their SHA-256 hashes match. This allows the current
+full-quantization candidates to stop on their exact parity failures without
+requiring unnecessary event listening, while the sensitive-BF16 candidates
+remain pending until their human event reviews are exported.
+
 Selection remains `pending` until those measurements exist on the local
 machine. Do not infer the winner from static size or the precursor LunaFox
 checkpoint alone.

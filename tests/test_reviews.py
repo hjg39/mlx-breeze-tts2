@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from mlx_breeze_tts.reviews import apply_reviews
+from mlx_breeze_tts.reviews import apply_reviews, validate_reviews
 
 
 def _summary(path):
@@ -96,3 +96,43 @@ def test_review_merge_rejects_different_model_revision(tmp_path):
 
     with pytest.raises(ValueError, match="model_revision"):
         apply_reviews(summary, reviews, tmp_path / "output.json")
+
+
+def test_release_review_validation_requires_revision_timestamp_and_all_events(tmp_path):
+    summary = tmp_path / "summary.json"
+    revision = "a" * 40
+    events = [
+        f"event_{language}_{event}"
+        for language in ("en", "zh")
+        for event in ("laugh", "cough", "clears_throat", "sigh")
+    ]
+    summary.write_text(
+        json.dumps(
+            {
+                "model_revision": revision,
+                "samples": [{"capability": capability} for capability in events],
+            }
+        )
+    )
+    reviews = tmp_path / "reviews.json"
+    reviews.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "model_revision": revision,
+                "exported_at": "2026-09-01T00:00:00Z",
+                "reviews": [
+                    {"capability": capability, "manual_event": "audible"}
+                    for capability in events
+                ],
+            }
+        )
+    )
+    assert validate_reviews(summary, reviews, release=True)["pass"] is True
+
+    payload = json.loads(reviews.read_text())
+    payload["reviews"][0]["manual_event"] = "pending"
+    reviews.write_text(json.dumps(payload))
+    report = validate_reviews(summary, reviews, release=True)
+    assert report["pass"] is False
+    assert any("requires an audible/missing verdict" in item for item in report["issues"])
