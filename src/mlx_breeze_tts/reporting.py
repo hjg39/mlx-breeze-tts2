@@ -1,6 +1,7 @@
 """Pure report renderers shared by benchmark and offline evidence tests."""
 
 import html
+import json
 from pathlib import Path
 
 
@@ -110,6 +111,14 @@ def listening_html(report: dict) -> str:
 </article>"""
         )
     title = html.escape(f"MLX Breeze TTS 2 — {report['status']}")
+    export_metadata = json.dumps(
+        {
+            "model_revision": report.get("model_revision"),
+            "model_path": report.get("resolved_model_path"),
+            "summary_created_at": report.get("created_at"),
+        },
+        ensure_ascii=False,
+    )
     return f"""<!doctype html>
 <html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{title}</title>
@@ -135,7 +144,9 @@ document.querySelector('#export').addEventListener('click',()=>{{
     card.querySelectorAll('[data-field]').forEach(input=>row[input.dataset.field]=input.value);
     return row;
   }});
-  const blob=new Blob([JSON.stringify({{schema_version:1,reviews}},null,2)],{{type:'application/json'}});
+  const metadata={export_metadata};
+  const documentBody={{schema_version:1,exported_at:new Date().toISOString(),...metadata,reviews}};
+  const blob=new Blob([JSON.stringify(documentBody,null,2)],{{type:'application/json'}});
   const link=document.createElement('a'); link.href=URL.createObjectURL(blob);
   link.download='manual_reviews.json'; link.click(); URL.revokeObjectURL(link.href);
 }});

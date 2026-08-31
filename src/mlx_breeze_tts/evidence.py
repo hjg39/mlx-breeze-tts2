@@ -101,6 +101,35 @@ def _quantization_evidence_passes(validation: dict, report: dict) -> bool:
     )
 
 
+def _listening_evidence_passes(validation: dict, report: dict) -> bool:
+    metadata = validation.get("manual_listening_evidence")
+    if not isinstance(metadata, dict):
+        return False
+    path = Path(str(metadata.get("path", ""))).expanduser()
+    if not path.is_file():
+        return False
+    if hashlib.sha256(path.read_bytes()).hexdigest() != metadata.get("sha256"):
+        return False
+    try:
+        document = json.loads(path.read_text())
+    except (OSError, json.JSONDecodeError):
+        return False
+    reviews = document.get("reviews")
+    if document.get("schema_version") != 1 or not isinstance(reviews, list):
+        return False
+    by_capability = {row.get("capability"): row for row in reviews}
+    samples = {row.get("capability"): row for row in report.get("samples", [])}
+    return all(
+        by_capability.get(capability, {}).get("manual_event") == "audible"
+        and samples.get(capability, {}).get("manual_event") == "audible"
+        for capability in REQUIRED_EVENTS
+    ) and (
+        isinstance(document.get("exported_at"), str)
+        and bool(document["exported_at"].strip())
+        and document.get("model_revision") == report.get("model_revision")
+    )
+
+
 def verify_evidence_bundle(root: str | Path) -> dict:
     root = Path(root).expanduser()
     issues: list[dict] = []
@@ -180,6 +209,14 @@ def verify_evidence_bundle(root: str | Path) -> dict:
                 )
 
         validation = report.get("validation", {})
+        if not _listening_evidence_passes(validation, report):
+            _issue(
+                issues,
+                variant,
+                "manual_listening_evidence",
+                "review document, SHA-256, or eight audible event verdicts are not pass",
+            )
+
         if _number(validation.get("corpus_cer"), 1.0) > 0.05:
             _issue(
                 issues,

@@ -35,7 +35,7 @@ and `THIRD_PARTY_NOTICES.md`.
 | Clone speaker similarity | pass | ECAPA cosine `0.775864`, threshold `0.25` |
 | Standalone automated tests | pass | 123 passed, 0 failed on the project machine |
 | Approved acceptance-matrix coverage | pass | 23 deterministic cases; complete required capability/event set; fake-runtime report and real FastAPI contract tests |
-| Manual listening evidence workflow | pass | HTML JSON export plus validated, non-destructive CLI merge tests |
+| Manual listening evidence workflow | pass; verdicts pending | HTML export records revision/timestamp; merge stores source path/SHA-256; verifier reopens the review and requires eight matching audible verdicts per artifact |
 | EN/ZH evaluation references | pass for local internal evaluation | `reports/full_matrix/input_manifest.json` and `input_validation.json`; files exist, mono 24 kHz PCM16, exact registry transcripts and SHA-256 verified |
 | Objective metric integration | pass | validated ASR/ECAPA worksheet merge; event-aware CER, skill-compatible leakage similarity, min cosine/P10 aggregation, missing values fail closed |
 | Automated objective backend | pass on precursor evidence | `evaluate-objective-metrics` records Whisper snapshot/artifact hashes and actual ECAPA device; `reports/baseline/objective_backend_check.json` reproduces cosine/P10 `0.775864`/`0.774540` with the standalone worker |

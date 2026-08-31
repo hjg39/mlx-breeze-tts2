@@ -77,6 +77,20 @@ def _write_complete_variant(root: Path, variant: str):
     }
     parity.write_text(json.dumps({"schema_version": 1, "pass": True, "checks": checks}))
     parity_sha256 = hashlib.sha256(parity.read_bytes()).hexdigest()
+    reviews = directory / "manual_reviews.json"
+    reviews.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "exported_at": "2026-09-01T00:00:00Z",
+                "model_revision": "a" * 40,
+                "reviews": [
+                    {"capability": capability, "manual_event": "audible"}
+                    for capability in sorted(REQUIRED_EVENTS)
+                ],
+            }
+        )
+    )
     bits = None if variant == "bf16" else (8 if variant == "8bit" else 4)
     model_provenance = {"artifact_revision": "a" * 40, "bits": bits}
     quantization_validation = {}
@@ -127,6 +141,12 @@ def _write_complete_variant(root: Path, variant: str):
                 "path": str(parity),
                 "sha256": parity_sha256,
             },
+            "manual_listening_evidence": {
+                "path": str(reviews),
+                "sha256": hashlib.sha256(reviews.read_bytes()).hexdigest(),
+                "review_count": len(REQUIRED_EVENTS),
+                "reviewed_capabilities": sorted(REQUIRED_EVENTS),
+            },
             **quantization_validation,
         },
         "performance": {
@@ -175,3 +195,16 @@ def test_reviewed_summary_takes_precedence_over_raw_generation(tmp_path):
     report = verify_evidence_bundle(tmp_path)
     assert report["pass"] is False
     assert any("summary.reviewed.json" in item for item in report["checked"])
+
+
+def test_tampered_manual_review_fails_hash_gate(tmp_path):
+    for variant in REQUIRED_VARIANTS:
+        _write_complete_variant(tmp_path, variant)
+    reviews = tmp_path / "bf16/manual_reviews.json"
+    reviews.write_text(reviews.read_text() + "\n")
+
+    report = verify_evidence_bundle(tmp_path)
+    assert any(
+        item["variant"] == "bf16" and item["gate"] == "manual_listening_evidence"
+        for item in report["issues"]
+    )

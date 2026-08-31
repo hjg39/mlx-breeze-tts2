@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 
@@ -27,8 +28,14 @@ def apply_reviews(
     reviews = document.get("reviews")
     if document.get("schema_version") != 1 or not isinstance(reviews, list):
         raise ValueError("Review document must use schema_version 1 and reviews[]")
+    review_revision = document.get("model_revision")
+    summary_revision = summary.get("model_revision")
+    if review_revision is not None and review_revision != summary_revision:
+        raise ValueError("Review model_revision does not match the summary")
 
-    samples = {sample.get("capability"): sample for sample in summary.get("samples", [])}
+    samples = {
+        sample.get("capability"): sample for sample in summary.get("samples", [])
+    }
     seen: set[str] = set()
     for review in reviews:
         capability = review.get("capability")
@@ -47,9 +54,19 @@ def apply_reviews(
     summary.setdefault("validation", {})["manual_listening"] = (
         "reviewed"
         if seen == set(samples)
-        and all(sample.get("manual_content") != "pending" for sample in samples.values())
+        and all(
+            sample.get("manual_content") != "pending" for sample in samples.values()
+        )
         else "partial"
     )
+    summary["validation"]["manual_listening_evidence"] = {
+        "path": str(reviews_path.resolve()),
+        "sha256": hashlib.sha256(reviews_path.read_bytes()).hexdigest(),
+        "exported_at": document.get("exported_at"),
+        "model_revision": review_revision,
+        "review_count": len(reviews),
+        "reviewed_capabilities": sorted(seen),
+    }
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(json.dumps(summary, ensure_ascii=False, indent=2))
     return output_path

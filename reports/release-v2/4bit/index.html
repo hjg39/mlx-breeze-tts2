@@ -575,7 +575,9 @@ document.querySelector('#export').addEventListener('click',()=>{
     card.querySelectorAll('[data-field]').forEach(input=>row[input.dataset.field]=input.value);
     return row;
   });
-  const blob=new Blob([JSON.stringify({schema_version:1,reviews},null,2)],{type:'application/json'});
+  const metadata={"model_revision": "c1c8ca18b70b30822735633991d9ebf4898e47d4", "model_path": "models/breeze-4bit-sensitive-bf16-v2", "summary_created_at": "2026-08-31T16:31:33.524532+00:00"};
+  const documentBody={schema_version:1,exported_at:new Date().toISOString(),...metadata,reviews};
+  const blob=new Blob([JSON.stringify(documentBody,null,2)],{type:'application/json'});
   const link=document.createElement('a'); link.href=URL.createObjectURL(blob);
   link.download='manual_reviews.json'; link.click(); URL.revokeObjectURL(link.href);
 });

@@ -226,6 +226,22 @@ mlx-breeze-tts2 validate-inputs reports/full_matrix/input_manifest.json \
   --output reports/full_matrix/input_validation.json
 ```
 
+For the checked-in `release-v2` bundle, export one review from each BF16,
+8-bit, and 4-bit listening page, then run the fail-closed finalizer. It copies
+the original review documents into their variant directories, records their
+SHA-256 hashes, performs both quantization selections, renders final reports,
+and runs the independent bundle verifier:
+
+```bash
+./scripts/finalize_release_evidence.zsh \
+  /path/to/bf16-manual_reviews.json \
+  /path/to/8bit-manual_reviews.json \
+  /path/to/4bit-manual_reviews.json
+```
+
+The finalizer refuses to overwrite any existing review, reviewed summary,
+selection report, or final summary.
+
 ## HTTP compatibility
 
 ```bash
