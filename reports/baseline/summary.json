@@ -1,0 +1,126 @@
+{
+  "run_id": "breeze_mlxaudio_smoke_20260831",
+  "date": "2026-08-31",
+  "hardware": "Apple M3 Max, 128 GB unified memory",
+  "runtime": {
+    "source_root": "/Users/vanch/mlx-audio",
+    "source_commit": "512f608",
+    "model_id": "LunaFox/Breeze-TTS-2-mlx-4bit",
+    "model_revision": "27be05f01bd8aad9628022c2bac6ded0119eef8a",
+    "upstream_model": "BreezeBlue/Breeze-TTS-2",
+    "upstream_revision": "c1c8ca18b70b30822735633991d9ebf4898e47d4",
+    "model_license": "BreezeBlue Research and Non-Commercial License"
+  },
+  "unit_tests": {
+    "status": "pass",
+    "passed": 30,
+    "failed": 0,
+    "warnings": 2
+  },
+  "samples": [
+    {
+      "capability": "voice_design_en",
+      "audio": "voice_design_en_000.wav",
+      "target_text": "Welcome aboard. Your journey begins now.",
+      "asr_text": "Welcome aboard. Your journey begins now.",
+      "content_status": "pass",
+      "duration_s": 2.72,
+      "elapsed_s": 23.66,
+      "rtf": 8.70,
+      "peak_memory_gb": 4.20,
+      "rms_dbfs": -21.348,
+      "peak_dbfs": -5.046,
+      "clipping_fraction": 0.0
+    },
+    {
+      "capability": "voice_clone_en",
+      "audio": "voice_clone_en_000.wav",
+      "reference_audio": "/Users/vanch/tts-test-project/data/reference_audio/dots_seedtts_en_ref.wav",
+      "reference_text": "The CrossLand acquisition gave Washington Mutual a toe hold entry into Oregon via Portland.",
+      "target_text": "Please read this sentence in the reference voice with clear pronunciation and stable pacing.",
+      "asr_text": "Please read this sentence in the reference voice with clear pronunciation and stable pacing.",
+      "content_status": "pass",
+      "duration_s": 5.76,
+      "elapsed_s": 13.80,
+      "rtf": 2.40,
+      "peak_memory_gb": 6.53,
+      "rms_dbfs": -34.767,
+      "peak_dbfs": -13.617,
+      "clipping_fraction": 0.0,
+      "speaker_similarity": {
+        "backend": "speechbrain_ecapa_voxceleb",
+        "device": "mps",
+        "cosine": 0.775864338874817,
+        "median_cosine": 0.7765774726867676,
+        "p10_cosine": 0.7745399475097656,
+        "threshold": 0.25,
+        "score": 0.97815110466697,
+        "verdict": "usable"
+      }
+    },
+    {
+      "capability": "voice_direction_en",
+      "audio": "voice_direction_en_000.wav",
+      "target_text": "We need to discuss what happened last night.",
+      "asr_text": "We need to discuss what happened last night.",
+      "content_status": "pass",
+      "duration_s": 4.0,
+      "elapsed_s": 17.31,
+      "rtf": 4.33,
+      "peak_memory_gb": 5.83,
+      "rms_dbfs": -33.039,
+      "peak_dbfs": -12.396,
+      "clipping_fraction": 0.0
+    },
+    {
+      "capability": "voice_design_zh_event",
+      "audio": "voice_design_zh_event_000.wav",
+      "target_text": "[笑] 欢迎来到今晚的故事时间。",
+      "asr_text": "欢迎来到今晚的故事时间",
+      "content_status": "pass",
+      "duration_s": 3.6,
+      "elapsed_s": 14.85,
+      "rtf": 4.12,
+      "peak_memory_gb": 5.71,
+      "rms_dbfs": -19.828,
+      "peak_dbfs": -5.235,
+      "clipping_fraction": 0.0,
+      "event_audibility": "pending_manual_listening"
+    },
+    {
+      "capability": "streaming_en",
+      "audio": "stream_en_000.wav",
+      "target_text": "(sigh) This response is streamed as it is generated.",
+      "asr_text": "This response is streamed as it is generated.",
+      "content_status": "pass",
+      "chunks": 5,
+      "duration_s": 4.16,
+      "observed_first_chunk_s_cold_e2e": 12.94,
+      "elapsed_s": 26.02,
+      "derived_total_rtf": 6.25,
+      "peak_memory_gb": 4.14,
+      "rms_dbfs": -22.031,
+      "peak_dbfs": -6.119,
+      "clipping_fraction": 0.0,
+      "event_audibility": "pending_manual_listening"
+    }
+  ],
+  "validation": {
+    "asr_backend": "mlx-whisper 0.4.3, mlx-community/whisper-large-v3-turbo",
+    "asr_content_failures": 0,
+    "clipping_failures": 0,
+    "speaker_similarity_status": "pass",
+    "manual_listening": "pending",
+    "upstream_pytorch_parity": "missing_evidence",
+    "http_api": "missing_evidence",
+    "bf16_mlx_checkpoint": "missing_evidence"
+  },
+  "known_risks": [
+    "The tested checkpoint is an unofficial 4-bit conversion, not a locally converted official BF16 artifact.",
+    "Clone and voice-direction output levels are low relative to the design samples.",
+    "CLI streaming works, but cold end-to-end first chunk latency is far from the upstream H100 fast path claim.",
+    "The CLI reports per-chunk RTF using cumulative elapsed time and chunk-only duration, so later chunk RTF values are not comparable metrics.",
+    "Event presence still requires listening or a dedicated event detector; ASR only proves spoken-text fidelity.",
+    "The upstream HTTP streaming API has not been verified in MLX."
+  ]
+}

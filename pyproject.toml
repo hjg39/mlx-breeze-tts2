@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mlx-breeze-tts2"
+version = "0.1.0"
+description = "Standalone Breeze TTS 2 inference, conversion, and serving on Apple Silicon with MLX"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+dependencies = [
+  "huggingface-hub>=0.27",
+  "mlx>=0.31.1",
+  "numpy>=1.26",
+  "scipy>=1.10",
+  "soundfile>=0.12",
+  "transformers>=4.48",
+]
+
+[project.optional-dependencies]
+server = ["fastapi>=0.115", "python-multipart>=0.0.20", "uvicorn>=0.34"]
+dev = ["pytest>=8", "ruff>=0.9"]
+
+[project.scripts]
+mlx-breeze-tts2 = "mlx_breeze_tts.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+
+[tool.ruff.lint.per-file-ignores]
+"src/mlx_breeze_tts/core/*.py" = ["E741"]
