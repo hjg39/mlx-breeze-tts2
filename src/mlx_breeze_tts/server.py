@@ -101,7 +101,9 @@ def create_app(model=None, model_id: str = DEFAULT_MODEL):
                     max_tokens=1500,
                     stream=True,
                 )
-                first = await asyncio.to_thread(next, generator)
+                first = await asyncio.to_thread(lambda: next(generator, None))
+                if first is None:
+                    raise RuntimeError("Breeze model produced no audio chunks")
             except (ValueError, FileNotFoundError) as exc:
                 raise HTTPException(400, str(exc)) from exc
 

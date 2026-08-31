@@ -422,3 +422,89 @@ def test_early_eos_yields_silent_result_instead_of_raising(monkeypatch):
     assert results[0].audio_samples["samples"] == 4
     assert results[0].audio_samples["samples-per-sec"] >= 0
     assert results[0].audio.tolist() == [0.0, 0.0, 0.0, 0.0]
+
+
+def test_exact_stream_interval_marks_last_audible_chunk_final(monkeypatch):
+    model = Model(tiny_config())
+
+    class Decoder:
+        decode_upsample_rate = 24000
+
+        def reset_streaming_state(self):
+            pass
+
+        def streaming_step(self, codes):
+            return mx.zeros((1, 1, codes.shape[-1]))
+
+    class AudioTokenizer:
+        decode_upsample_rate = 24000
+        decoder = Decoder()
+
+    class Backbone:
+        def make_cache(self):
+            return []
+
+        def __call__(self, input_embeddings=None, input_ids=None, cache=None):
+            del cache
+            length = (
+                input_embeddings.shape[1]
+                if input_embeddings is not None
+                else input_ids.shape[1]
+            )
+            return mx.zeros((1, length, 16))
+
+    class Head:
+        def __init__(self):
+            self.calls = 0
+
+        def __call__(self, _hidden):
+            self.calls += 1
+            logits = mx.full((1, 9), -100.0)
+            logits[..., 1 if self.calls <= 2 else 8] = 100.0
+            return logits
+
+    model.audio_tokenizer = AudioTokenizer()
+    model.backbone_model = Backbone()
+    model.lm_head = Head()
+    monkeypatch.setattr(
+        model, "_prompt_embeddings", lambda *_args, **_kwargs: mx.zeros((1, 1, 16))
+    )
+    monkeypatch.setattr(
+        model, "_depth_tokens", lambda first, *_args, **_kwargs: [first, 2, 3]
+    )
+
+    chunks = list(
+        model.generate(
+            "test", temperature=0, top_k=0, stream=True, streaming_interval=2.0
+        )
+    )
+    assert len(chunks) == 1
+    assert chunks[0].token_count == 2
+    assert chunks[0].is_final_chunk is True
+
+
+def test_empty_early_eos_codec_output_is_an_error():
+    model = Model(tiny_config())
+
+    class AudioTokenizer:
+        def decode(self, _codes):
+            return mx.zeros((1, 0)), mx.array([0], dtype=mx.int32)
+
+    model.audio_tokenizer = AudioTokenizer()
+    with pytest.raises(RuntimeError, match="empty audio"):
+        model._empty_audio()
+
+
+@pytest.mark.parametrize(
+    "audio",
+    [
+        mx.zeros((0,), dtype=mx.float32),
+        mx.zeros((1, 2, 10), dtype=mx.float32),
+        mx.array([0.0, float("nan")], dtype=mx.float32),
+    ],
+)
+def test_reference_audio_rejects_empty_multichannel_or_nonfinite(audio):
+    model = Model(tiny_config())
+    model.audio_tokenizer = object()
+    with pytest.raises(ValueError):
+        model._encode_reference(audio)

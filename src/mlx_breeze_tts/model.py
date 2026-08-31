@@ -7,7 +7,6 @@ no PyTorch or upstream Breeze runtime is required at inference time.
 """
 
 import json
-import math
 import time
 from functools import wraps
 from inspect import signature
@@ -26,6 +25,7 @@ from .core.cache import KVCache
 from .core.rope_utils import initialize_rope
 from .core.sample_utils import make_sampler
 from .results import GenerationResult
+from .validation import validate_generation_args
 
 
 def _reset_streaming_on_abort(method):
@@ -782,6 +782,15 @@ class Model(nn.Module):
                 "Breeze supports exactly one reference audio item per generation; "
                 f"received batch size {audio.shape[0]}."
             )
+        if audio.shape[1] != 1:
+            raise ValueError(
+                "Breeze reference audio must be mono; "
+                f"received {audio.shape[1]} channels."
+            )
+        if audio.shape[-1] <= 0:
+            raise ValueError("Breeze reference audio must not be empty.")
+        if not bool(mx.all(mx.isfinite(audio)).item()):
+            raise ValueError("Breeze reference audio must contain only finite samples.")
         return mx.transpose(self.audio_tokenizer.encode(audio), (0, 2, 1))
 
     def _prompt_embeddings(
@@ -969,12 +978,17 @@ class Model(nn.Module):
         """Return the official silent fallback when EOS precedes all frames."""
         # The upstream implementation decodes a one-frame dummy code rather
         # than raising.  Keep that behavior when a codec is available, while
-        # retaining a zero-length CPU-safe fallback for light test doubles.
+        # and surface codec failures rather than disguising them as empty audio.
         try:
             dummy = mx.ones((1, 1, self.num_codebooks), dtype=mx.int32)
-            return self._decode_codes(dummy)
-        except Exception:  # pragma: no cover - only used by partial fakes
-            return mx.zeros((0,), dtype=mx.float32)
+            audio = self._decode_codes(dummy)
+        except Exception as exc:
+            raise RuntimeError(
+                "Breeze failed to decode the early-EOS fallback"
+            ) from exc
+        if audio.shape[0] <= 0:
+            raise RuntimeError("Breeze early-EOS fallback decoded to empty audio")
+        return audio
 
     @_reset_streaming_on_abort
     def generate(
@@ -996,26 +1010,22 @@ class Model(nn.Module):
         **_: object,
     ) -> Generator[GenerationResult, None, None]:
         """Generate Breeze audio for voice design, cloning, or direction."""
-        if not isinstance(text, str) or not text.strip():
-            raise ValueError("text must be a non-empty string.")
-        if seed is not None and (not isinstance(seed, int) or seed < 0):
-            raise ValueError("seed must be a non-negative integer or None.")
+        validate_generation_args(
+            text=text,
+            voice=voice,
+            instruct=instruct,
+            cfg_scale=cfg_scale,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            top_p=top_p,
+            top_k=top_k,
+            repetition_penalty=repetition_penalty,
+            seed=seed,
+            stream=stream,
+            streaming_interval=streaming_interval,
+        )
         if seed is not None:
             mx.random.seed(seed)
-        if max_tokens <= 0:
-            raise ValueError("max_tokens must be positive.")
-        if top_k < 0:
-            raise ValueError("top_k must be non-negative.")
-        if temperature < 0:
-            raise ValueError("temperature must be non-negative.")
-        if not 0 <= top_p <= 1:
-            raise ValueError("top_p must be between 0 and 1.")
-        if repetition_penalty <= 0:
-            raise ValueError("repetition_penalty must be positive.")
-        if cfg_scale is not None and (not math.isfinite(cfg_scale) or cfg_scale <= 0):
-            raise ValueError("cfg_scale must be finite and positive.")
-        if streaming_interval <= 0:
-            raise ValueError("streaming_interval must be positive.")
 
         started = time.perf_counter()
         cond = self._prompt_embeddings(
@@ -1058,6 +1068,10 @@ class Model(nn.Module):
             nonlocal chunk_index, cumulative_samples, previous_yield
             mx.eval(audio)
             samples = audio.shape[0]
+            if samples <= 0:
+                raise RuntimeError("Breeze streaming codec produced empty audio")
+            if not bool(mx.all(mx.isfinite(audio)).item()):
+                raise RuntimeError("Breeze streaming codec produced non-finite audio")
             now = time.perf_counter()
             cumulative_elapsed = now - started
             chunk_elapsed = now - previous_yield
@@ -1129,7 +1143,9 @@ class Model(nn.Module):
             )
             frames.append(frame)
             pending_frames.append(frame)
-            if stream and len(pending_frames) >= chunk_frames:
+            # Keep one look-ahead frame so the final audible chunk can be
+            # marked final even when the frame count is an exact interval.
+            if stream and len(pending_frames) > chunk_frames:
                 chunk = pending_frames[:chunk_frames]
                 del pending_frames[:chunk_frames]
                 pending_codes = mx.array(chunk, dtype=mx.int32)[None, :, :]
@@ -1192,6 +1208,10 @@ class Model(nn.Module):
         audio = self._decode_codes(codes)
         samples = audio.shape[0]
         mx.eval(audio)
+        if samples <= 0:
+            raise RuntimeError("Breeze codec produced empty audio")
+        if not bool(mx.all(mx.isfinite(audio)).item()):
+            raise RuntimeError("Breeze codec produced non-finite audio")
         elapsed = time.perf_counter() - started
         token_count = len(frames)
         tokens_per_sec = token_count / elapsed if elapsed > 0 else 0.0

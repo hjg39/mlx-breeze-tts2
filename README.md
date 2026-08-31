@@ -10,7 +10,7 @@ inference passed on an Apple M3 Max; a fresh standalone Metal run, official BF16
 conversion, 8-bit run, PyTorch parity, and manual event listening remain
 `pending`.
 
-The current automated handoff is `40 passed, 2 Metal-dependent modules skipped`;
+The current automated handoff is `68 passed, 2 Metal-dependent modules skipped`;
 wheel and source distributions build successfully with
 `uv build --no-build-isolation`.
 
@@ -25,6 +25,8 @@ wheel and source distributions build successfully with
 - Python API, command line, and upstream-compatible FastAPI endpoint
 - Official BF16 source conversion plus affine 8-bit and 4-bit outputs
 - Strict checkpoint key audit
+- Fail-fast validation for every generation control and reference-audio input
+- Empty/non-finite codec output rejection and streaming-state cleanup
 
 ## Install
 

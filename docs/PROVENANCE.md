@@ -29,10 +29,11 @@ and `THIRD_PARTY_NOTICES.md`.
 | Built wheel installs and exposes static audit CLI | pass | isolated `/private/tmp` venv; `inspect-checkpoint` passed on pinned 4-bit snapshot |
 | Required CLI and HTTP surfaces exist | pass | dynamic fake-model API tests |
 | HTTP 400/409 behavior and temp cleanup | pass | `tests/test_public_surfaces.py` |
+| Generation argument and audio-input failure contract | pass | Metal-independent finite/type/range validation; undecodable/empty/non-finite WAV checks; HTTP 400 mapping and cleanup regressions |
 | 4-bit voice design / clone / direction / ZH event / streaming on M3 Max | pass on precursor implementation | `reports/baseline/summary.json` and WAVs |
 | ASR content fidelity in five baseline cases | pass | Whisper large-v3-turbo, zero failures |
 | Clone speaker similarity | pass | ECAPA cosine `0.775864`, threshold `0.25` |
-| Metal-independent standalone tests | pass | 40 passed, 0 failed |
+| Metal-independent standalone tests | pass | 68 passed, 0 failed |
 | Approved acceptance-matrix coverage | pass | 23 deterministic cases; complete required capability/event set; fake-runtime report and real FastAPI contract tests |
 | Manual listening evidence workflow | pass | HTML JSON export plus validated, non-destructive CLI merge tests |
 | EN/ZH evaluation references | pass for local internal evaluation | `reports/full_matrix/input_manifest.json` and `input_validation.json`; files exist, mono 24 kHz PCM16, exact registry transcripts and SHA-256 verified |

@@ -151,3 +151,69 @@ def test_uploaded_reference_is_deleted_after_request():
 
     assert response.status_code == 200
     assert not captured["path"].exists()
+
+
+def test_uploaded_reference_is_deleted_when_generation_input_fails():
+    from fastapi.testclient import TestClient
+
+    captured = {}
+
+    class RejectingModel:
+        def generate(self, **kwargs):
+            captured["path"] = Path(kwargs["ref_audio"])
+            assert captured["path"].is_file()
+            raise ValueError("reference audio is invalid")
+            yield  # pragma: no cover - preserve generator semantics
+
+    with TestClient(create_app(model=RejectingModel(), model_id="fake")) as client:
+        response = client.post(
+            "/v1/audio/speech",
+            data={"text": "hello", "ref_text": "reference"},
+            files={"ref_audio": ("reference.wav", b"bad", "audio/wav")},
+        )
+
+    assert response.status_code == 400
+    assert not captured["path"].exists()
+
+
+def test_undecodable_reference_maps_to_http_400_and_is_deleted():
+    from fastapi.testclient import TestClient
+
+    from mlx_breeze_tts.audio import load_audio
+
+    captured = {}
+
+    class DecodingModel:
+        def generate(self, **kwargs):
+            captured["path"] = Path(kwargs["ref_audio"])
+            load_audio(captured["path"])
+            yield  # pragma: no cover - decoding must fail first
+
+    with TestClient(create_app(model=DecodingModel(), model_id="fake")) as client:
+        response = client.post(
+            "/v1/audio/speech",
+            data={"text": "hello", "ref_text": "reference"},
+            files={"ref_audio": ("reference.wav", b"not-a-wave", "audio/wav")},
+        )
+
+    assert response.status_code == 400
+    assert not captured["path"].exists()
+
+
+def test_model_that_yields_no_chunks_returns_http_500_without_lock_leak():
+    from fastapi.testclient import TestClient
+
+    class EmptyModel:
+        def generate(self, **_kwargs):
+            return
+            yield  # pragma: no cover - preserve generator semantics
+
+    with TestClient(
+        create_app(model=EmptyModel(), model_id="fake"),
+        raise_server_exceptions=False,
+    ) as client:
+        first = client.post("/v1/audio/speech", data={"text": "hello"})
+        second = client.post("/v1/audio/speech", data={"text": "again"})
+
+    assert first.status_code == 500
+    assert second.status_code == 500
