@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "date": "2026-08-31",
+  "project": "/Users/vanch/mlx-breeze-tts2",
+  "implementation_commit": "573ad7d37e512af098ed2dbb4e2fc72536f45d75",
+  "source_commits": [
+    "cf958c0",
+    "e998d4c",
+    "573ad7d"
+  ],
+  "verification": {
+    "ruff": "pass",
+    "compileall": "pass",
+    "pytest": {
+      "status": "partial_pass",
+      "passed": 9,
+      "failed": 0,
+      "skipped_modules": 2,
+      "skip_reason": "MLX Metal device unavailable in current execution sandbox"
+    },
+    "package_build": {
+      "status": "pass",
+      "wheel_sha256": "2e0b775acf2ee4fdb65c26cd7b94141437d601fcfa0cbc383614fab8ab2c3fce",
+      "sdist_sha256": "519f155b7ca810125bcc03d062675d776b841fac274cd4de66f1558726d52196"
+    },
+    "production_mlx_audio_imports": 0,
+    "baseline_real_device": "pass_on_precursor_implementation",
+    "standalone_real_device": "pending",
+    "official_bf16": "pending",
+    "mlx_8bit": "pending",
+    "mlx_4bit_standalone": "pending",
+    "pytorch_parity": "missing_evidence",
+    "manual_listening": "pending"
+  },
+  "blockers": [
+    {
+      "kind": "metal",
+      "detail": "Current execution sandbox cannot initialize an MLX Metal device."
+    },
+    {
+      "kind": "disk",
+      "free_kib": 12560000,
+      "minimum_recommended_free_gib": 20,
+      "detail": "Official source and BF16 output cannot safely coexist with conversion headroom."
+    }
+  ],
+  "baseline_evidence": "reports/baseline/summary.json"
+}
