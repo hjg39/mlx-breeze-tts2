@@ -73,6 +73,7 @@ def test_http_health_and_pcm_contract():
             assert kwargs["cfg_scale"] == 1.0
             assert kwargs["seed"] == 42
             assert kwargs["stream"] is True
+            assert kwargs["ref_text"] is None
             yield SimpleNamespace(audio=np.array([0.0, 0.5], dtype=np.float32))
             yield SimpleNamespace(audio=np.array([-0.5], dtype=np.float32))
 

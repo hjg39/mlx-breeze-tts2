@@ -5,6 +5,7 @@ import json
 import re
 from pathlib import Path
 
+from .http_evidence import http_report_passes
 from .parity import EXACT_SECTIONS
 
 REQUIRED_VARIANTS = ("bf16", "8bit", "4bit")
@@ -130,6 +131,22 @@ def _listening_evidence_passes(validation: dict, report: dict) -> bool:
     )
 
 
+def _http_evidence_passes(validation: dict, report: dict) -> bool:
+    metadata = validation.get("http_evidence")
+    if not isinstance(metadata, dict):
+        return False
+    path = Path(str(metadata.get("path", ""))).expanduser()
+    if not path.is_file():
+        return False
+    if hashlib.sha256(path.read_bytes()).hexdigest() != metadata.get("sha256"):
+        return False
+    try:
+        evidence = json.loads(path.read_text())
+    except (OSError, json.JSONDecodeError):
+        return False
+    return http_report_passes(evidence, report.get("model_revision"))
+
+
 def verify_evidence_bundle(root: str | Path) -> dict:
     root = Path(root).expanduser()
     issues: list[dict] = []
@@ -138,6 +155,8 @@ def verify_evidence_bundle(root: str | Path) -> dict:
         candidates = (
             root / variant / "summary.final.json",
             root / variant / "summary.reviewed.json",
+            root / variant / "summary.http.json",
+            root / variant / "summary.parity.json",
             root / variant / "summary.metrics.json",
             root / variant / "summary.json",
         )
@@ -179,6 +198,13 @@ def verify_evidence_bundle(root: str | Path) -> dict:
         for name in REQUIRED_INTERFACES:
             if interfaces.get(name) != "pass":
                 _issue(issues, variant, f"interface_{name}", "not pass")
+        if not _http_evidence_passes(report.get("validation", {}), report):
+            _issue(
+                issues,
+                variant,
+                "http_evidence",
+                "real HTTP probe report, revision, or SHA-256 is not pass",
+            )
 
         samples = {item.get("capability"): item for item in report.get("samples", [])}
         missing_capabilities = sorted(REQUIRED_CAPABILITIES - set(samples))

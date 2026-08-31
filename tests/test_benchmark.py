@@ -45,6 +45,7 @@ class _Model:
 def test_http_probe_exercises_real_fastapi_contract():
     result = benchmark._probe_http(_Model(), 42)
     assert result["status"] == "pass"
+    assert result["speech_status_code"] == 200
     assert all(result["checks"].values())
 
 

@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "created_at": "2026-08-31T17:02:55.024078+00:00",
+  "model": "models/breeze-bf16",
+  "resolved_model_path": "models/breeze-bf16",
+  "model_revision": "c1c8ca18b70b30822735633991d9ebf4898e47d4",
+  "model_provenance": {
+    "artifact_revision": null,
+    "upstream_source": "/Users/vanch/.cache/huggingface/hub/models--BreezeBlue--Breeze-TTS-2/snapshots/c1c8ca18b70b30822735633991d9ebf4898e47d4",
+    "upstream_revision": "c1c8ca18b70b30822735633991d9ebf4898e47d4",
+    "dtype": "bfloat16",
+    "bits": null,
+    "quantization_policy": null,
+    "storage_mode": "hardlink",
+    "weight_sha256": {
+      "model-00001-of-00002.safetensors": "abf813781256e10cbe81f2dbb415f897556225d4dfa0282d67aa8ea164e114a9",
+      "model-00002-of-00002.safetensors": "36aa73b1a11361e1774db90d9c63c63303b294c022de112aa51904d940edcef1"
+    },
+    "artifact_bytes": 6966557042
+  },
+  "probe": {
+    "status": "pass",
+    "checks": {
+      "health_200": true,
+      "health_sample_rate": true,
+      "speech_200": true,
+      "content_type_pcm": true,
+      "sample_rate_header": true,
+      "sample_format_header": true,
+      "cache_control": true,
+      "nonempty_even_pcm": true
+    },
+    "speech_status_code": 200
+  }
+}

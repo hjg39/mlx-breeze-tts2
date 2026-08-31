@@ -10,7 +10,7 @@ upstream-compatible HTTP endpoint are implemented. Official BF16 plus policy-v2
 waveform, interface, performance, and precision-specific PyTorch parity gates.
 Manual event listening remains `pending`.
 
-The current automated handoff is `123 passed` on the project machine;
+The current automated handoff is `127 passed` on the project machine;
 wheel and source distributions build successfully with
 `uv build --no-build-isolation`.
 
@@ -208,8 +208,8 @@ mlx-breeze-tts2 render-report \
   --output reports/full_matrix/4bit
 ```
 
-`verify-evidence` prefers `summary.final.json`, then reviewed/metrics summaries,
-while retaining the untouched generation summary as provenance. Missing ASR,
+`verify-evidence` prefers final, reviewed, parity, then metrics summaries while
+retaining the untouched generation summary as provenance. Missing ASR,
 speaker, leakage, or listening values remain pending and fail closed. Content
 uses corpus CER over standard cases; per-case and maximum CER remain diagnostic.
 
@@ -241,6 +241,23 @@ and runs the independent bundle verifier:
 
 The finalizer refuses to overwrite any existing review, reviewed summary,
 selection report, or final summary.
+
+If a benchmark predates an HTTP fix, capture and merge a revision-bound real
+probe without rerunning the 23 audio cases:
+
+```bash
+mlx-breeze-tts2 probe-http --model models/breeze-4bit \
+  --output reports/full_matrix/4bit/http_evidence.json
+mlx-breeze-tts2 apply-http-evidence \
+  reports/full_matrix/4bit/summary.parity.json \
+  reports/full_matrix/4bit/http_evidence.json \
+  --output reports/full_matrix/4bit/summary.http.json
+```
+
+The server owns a single dedicated inference executor and initializes MLX
+CPU/GPU streams on that worker. Generator creation, iteration, PCM conversion,
+and cleanup remain on the same thread while the event loop can return HTTP 409
+for concurrent requests.
 
 ## HTTP compatibility
 

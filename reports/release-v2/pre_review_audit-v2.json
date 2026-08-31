@@ -1,0 +1,163 @@
+{
+  "schema_version": 1,
+  "root": "reports/release-v2",
+  "required_variants": [
+    "bf16",
+    "8bit",
+    "4bit"
+  ],
+  "checked": [
+    "reports/release-v2/bf16/summary.http.json",
+    "reports/release-v2/8bit/summary.http.json",
+    "reports/release-v2/4bit/summary.http.json"
+  ],
+  "issue_count": 29,
+  "issues": [
+    {
+      "variant": "bf16",
+      "gate": "event_en_laugh",
+      "detail": "manual event verdict is not audible"
+    },
+    {
+      "variant": "bf16",
+      "gate": "event_en_cough",
+      "detail": "manual event verdict is not audible"
+    },
+    {
+      "variant": "bf16",
+      "gate": "event_en_clears_throat",
+      "detail": "manual event verdict is not audible"
+    },
+    {
+      "variant": "bf16",
+      "gate": "event_en_sigh",
+      "detail": "manual event verdict is not audible"
+    },
+    {
+      "variant": "bf16",
+      "gate": "event_zh_laugh",
+      "detail": "manual event verdict is not audible"
+    },
+    {
+      "variant": "bf16",
+      "gate": "event_zh_cough",
+      "detail": "manual event verdict is not audible"
+    },
+    {
+      "variant": "bf16",
+      "gate": "event_zh_clears_throat",
+      "detail": "manual event verdict is not audible"
+    },
+    {
+      "variant": "bf16",
+      "gate": "event_zh_sigh",
+      "detail": "manual event verdict is not audible"
+    },
+    {
+      "variant": "bf16",
+      "gate": "manual_listening_evidence",
+      "detail": "review document, SHA-256, or eight audible event verdicts are not pass"
+    },
+    {
+      "variant": "8bit",
+      "gate": "event_en_laugh",
+      "detail": "manual event verdict is not audible"
+    },
+    {
+      "variant": "8bit",
+      "gate": "event_en_cough",
+      "detail": "manual event verdict is not audible"
+    },
+    {
+      "variant": "8bit",
+      "gate": "event_en_clears_throat",
+      "detail": "manual event verdict is not audible"
+    },
+    {
+      "variant": "8bit",
+      "gate": "event_en_sigh",
+      "detail": "manual event verdict is not audible"
+    },
+    {
+      "variant": "8bit",
+      "gate": "event_zh_laugh",
+      "detail": "manual event verdict is not audible"
+    },
+    {
+      "variant": "8bit",
+      "gate": "event_zh_cough",
+      "detail": "manual event verdict is not audible"
+    },
+    {
+      "variant": "8bit",
+      "gate": "event_zh_clears_throat",
+      "detail": "manual event verdict is not audible"
+    },
+    {
+      "variant": "8bit",
+      "gate": "event_zh_sigh",
+      "detail": "manual event verdict is not audible"
+    },
+    {
+      "variant": "8bit",
+      "gate": "manual_listening_evidence",
+      "detail": "review document, SHA-256, or eight audible event verdicts are not pass"
+    },
+    {
+      "variant": "8bit",
+      "gate": "quantization_ablation",
+      "detail": "selected policy ablation report or SHA-256 is not pass"
+    },
+    {
+      "variant": "4bit",
+      "gate": "event_en_laugh",
+      "detail": "manual event verdict is not audible"
+    },
+    {
+      "variant": "4bit",
+      "gate": "event_en_cough",
+      "detail": "manual event verdict is not audible"
+    },
+    {
+      "variant": "4bit",
+      "gate": "event_en_clears_throat",
+      "detail": "manual event verdict is not audible"
+    },
+    {
+      "variant": "4bit",
+      "gate": "event_en_sigh",
+      "detail": "manual event verdict is not audible"
+    },
+    {
+      "variant": "4bit",
+      "gate": "event_zh_laugh",
+      "detail": "manual event verdict is not audible"
+    },
+    {
+      "variant": "4bit",
+      "gate": "event_zh_cough",
+      "detail": "manual event verdict is not audible"
+    },
+    {
+      "variant": "4bit",
+      "gate": "event_zh_clears_throat",
+      "detail": "manual event verdict is not audible"
+    },
+    {
+      "variant": "4bit",
+      "gate": "event_zh_sigh",
+      "detail": "manual event verdict is not audible"
+    },
+    {
+      "variant": "4bit",
+      "gate": "manual_listening_evidence",
+      "detail": "review document, SHA-256, or eight audible event verdicts are not pass"
+    },
+    {
+      "variant": "4bit",
+      "gate": "quantization_ablation",
+      "detail": "selected policy ablation report or SHA-256 is not pass"
+    }
+  ],
+  "pass": false
+}

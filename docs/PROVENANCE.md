@@ -27,13 +27,13 @@ and `THIRD_PARTY_NOTICES.md`.
 | Production source contains no `mlx_audio` import | pass | `tests/test_isolation.py` |
 | Package compiles and wheel/sdist build | pass | `compileall`; `uv build --no-build-isolation` |
 | Built wheel installs and exposes static audit CLI | pass | isolated `/private/tmp` venv; `inspect-checkpoint` passed on pinned 4-bit snapshot |
-| Required CLI and HTTP surfaces exist | pass | dynamic fake-model API tests |
+| Required CLI and HTTP surfaces exist | pass | fake-model contract tests plus revision-bound BF16/8-bit/4-bit real HTTP probes under `reports/release-v2/*/http_evidence.json` |
 | HTTP 400/409 behavior and temp cleanup | pass | `tests/test_public_surfaces.py` |
 | Generation argument and audio-input failure contract | pass | Metal-independent finite/type/range validation; undecodable/empty/non-finite WAV checks; HTTP 400 mapping and cleanup regressions |
 | 4-bit voice design / clone / direction / ZH event / streaming on M3 Max | pass on precursor implementation | `reports/baseline/summary.json` and WAVs |
 | ASR content fidelity in five baseline cases | pass | Whisper large-v3-turbo, zero failures |
 | Clone speaker similarity | pass | ECAPA cosine `0.775864`, threshold `0.25` |
-| Standalone automated tests | pass | 123 passed, 0 failed on the project machine |
+| Standalone automated tests | pass | 127 passed, 0 failed on the project machine |
 | Approved acceptance-matrix coverage | pass | 23 deterministic cases; complete required capability/event set; fake-runtime report and real FastAPI contract tests |
 | Manual listening evidence workflow | pass; verdicts pending | HTML export records revision/timestamp; merge stores source path/SHA-256; verifier reopens the review and requires eight matching audible verdicts per artifact |
 | EN/ZH evaluation references | pass for local internal evaluation | `reports/full_matrix/input_manifest.json` and `input_validation.json`; files exist, mono 24 kHz PCM16, exact registry transcripts and SHA-256 verified |

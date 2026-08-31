@@ -8,6 +8,7 @@ from mlx_breeze_tts.evidence import (
     REQUIRED_VARIANTS,
     verify_evidence_bundle,
 )
+from mlx_breeze_tts.http_evidence import REQUIRED_HTTP_CHECKS
 
 
 def test_empty_bundle_fails_all_variants(tmp_path):
@@ -91,6 +92,20 @@ def _write_complete_variant(root: Path, variant: str):
             }
         )
     )
+    http = directory / "http.json"
+    http.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "model_revision": "a" * 40,
+                "probe": {
+                    "status": "pass",
+                    "speech_status_code": 200,
+                    "checks": {name: True for name in REQUIRED_HTTP_CHECKS},
+                },
+            }
+        )
+    )
     bits = None if variant == "bf16" else (8 if variant == "8bit" else 4)
     model_provenance = {"artifact_revision": "a" * 40, "bits": bits}
     quantization_validation = {}
@@ -146,6 +161,10 @@ def _write_complete_variant(root: Path, variant: str):
                 "sha256": hashlib.sha256(reviews.read_bytes()).hexdigest(),
                 "review_count": len(REQUIRED_EVENTS),
                 "reviewed_capabilities": sorted(REQUIRED_EVENTS),
+            },
+            "http_evidence": {
+                "path": str(http),
+                "sha256": hashlib.sha256(http.read_bytes()).hexdigest(),
             },
             **quantization_validation,
         },

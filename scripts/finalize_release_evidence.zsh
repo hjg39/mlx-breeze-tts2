@@ -43,7 +43,7 @@ done
 
 require_absent reports/release-v2/bf16/summary.final.json
 cli apply-listening-review \
-  reports/release-v2/bf16/summary.parity.json \
+  reports/release-v2/bf16/summary.http.json \
   reports/release-v2/bf16/manual_reviews.json \
   --output reports/release-v2/bf16/summary.final.json
 
@@ -58,7 +58,7 @@ for bits in 8 4; do
   require_absent "$comparison"
   require_absent "$final"
   cli apply-listening-review \
-    "$directory/summary.parity.json" \
+    "$directory/summary.http.json" \
     "$directory/manual_reviews.json" \
     --output "$reviewed"
   cli compare-quantization "$full" "$reviewed" --output "$comparison"

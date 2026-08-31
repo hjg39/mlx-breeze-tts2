@@ -4,6 +4,7 @@ import asyncio
 import logging
 import tempfile
 import threading
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager, suppress
 from pathlib import Path
 
@@ -14,7 +15,9 @@ DEFAULT_MODEL = "LunaFox/Breeze-TTS-2-mlx-4bit"
 LOGGER = logging.getLogger(__name__)
 
 
-def create_app(model=None, model_id: str = DEFAULT_MODEL):
+def create_app(
+    model=None, model_id: str = DEFAULT_MODEL, *, inline_inference: bool = False
+):
     try:
         from fastapi import FastAPI, File, Form, HTTPException, UploadFile
         from fastapi.responses import JSONResponse, StreamingResponse
@@ -23,12 +26,42 @@ def create_app(model=None, model_id: str = DEFAULT_MODEL):
 
     state = {"model": model, "status": "ok" if model is not None else "loading"}
     inference_lock = threading.Lock()
+    inference_executor = (
+        None
+        if inline_inference
+        else ThreadPoolExecutor(
+            max_workers=1, thread_name_prefix="mlx-breeze-inference"
+        )
+    )
+    worker_state = threading.local()
+
+    def initialize_worker_streams():
+        if getattr(worker_state, "initialized", False):
+            return
+        import mlx.core as mx
+
+        worker_state.streams = [mx.new_stream(mx.cpu), mx.new_stream(mx.gpu)]
+        for stream in worker_state.streams:
+            mx.set_default_stream(stream)
+        worker_state.initialized = True
+
+    def run_on_inference_worker(function, *args):
+        initialize_worker_streams()
+        return function(*args)
+
+    async def inference_call(function, *args):
+        if inference_executor is None:
+            return function(*args)
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(
+            inference_executor, run_on_inference_worker, function, *args
+        )
 
     async def load_in_background():
         try:
             from .loader import load
 
-            state["model"] = await asyncio.to_thread(load, model_id)
+            state["model"] = await inference_call(load, model_id)
             state["status"] = "ok"
         except Exception:
             state["status"] = "error"
@@ -44,6 +77,8 @@ def create_app(model=None, model_id: str = DEFAULT_MODEL):
             task.cancel()
             with suppress(asyncio.CancelledError):
                 await task
+        if inference_executor is not None:
+            inference_executor.shutdown(wait=True, cancel_futures=True)
 
     app = FastAPI(title="MLX Breeze TTS 2", lifespan=lifespan)
 
@@ -91,31 +126,46 @@ def create_app(model=None, model_id: str = DEFAULT_MODEL):
                     handle.write(upload)
                     temp_path = Path(handle.name)
             try:
-                generator = state["model"].generate(
-                    text=text,
-                    instruct=instruction,
-                    cfg_scale=cfg_scale,
-                    ref_audio=temp_path,
-                    ref_text=ref_text,
-                    seed=seed,
-                    max_tokens=1500,
-                    stream=True,
-                )
-                first = await asyncio.to_thread(lambda: next(generator, None))
-                if first is None:
+
+                def start_generation():
+                    active_generator = state["model"].generate(
+                        text=text,
+                        instruct=instruction,
+                        cfg_scale=cfg_scale,
+                        ref_audio=temp_path,
+                        ref_text=ref_text or None,
+                        seed=seed,
+                        max_tokens=1500,
+                        stream=True,
+                    )
+                    first_result = next(active_generator, None)
+                    return (
+                        active_generator,
+                        pcm_bytes(first_result) if first_result is not None else None,
+                    )
+
+                generator, first_pcm = await inference_call(start_generation)
+                if first_pcm is None:
                     raise RuntimeError("Breeze model produced no audio chunks")
             except (ValueError, FileNotFoundError) as exc:
                 raise HTTPException(400, str(exc)) from exc
 
-            def stream_pcm():
+            async def stream_pcm():
+                def next_pcm():
+                    result = next(generator, None)
+                    return pcm_bytes(result) if result is not None else None
+
                 try:
-                    yield pcm_bytes(first)
-                    for result in generator:
-                        yield pcm_bytes(result)
+                    yield first_pcm
+                    while True:
+                        chunk = await inference_call(next_pcm)
+                        if chunk is None:
+                            break
+                        yield chunk
                 finally:
                     close = getattr(generator, "close", None)
                     if close is not None:
-                        close()
+                        await inference_call(close)
                     if temp_path is not None:
                         temp_path.unlink(missing_ok=True)
                     inference_lock.release()
@@ -133,7 +183,7 @@ def create_app(model=None, model_id: str = DEFAULT_MODEL):
             if generator is not None:
                 close = getattr(generator, "close", None)
                 if close is not None:
-                    close()
+                    await inference_call(close)
             if temp_path is not None:
                 temp_path.unlink(missing_ok=True)
             inference_lock.release()

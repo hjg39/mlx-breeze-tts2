@@ -924,6 +924,7 @@ evaluation = [
 ]
 server = [
     { name = "fastapi" },
+    { name = "httpx" },
     { name = "python-multipart" },
     { name = "uvicorn" },
 ]
@@ -931,6 +932,7 @@ server = [
 [package.metadata]
 requires-dist = [
     { name = "fastapi", marker = "extra == 'server'", specifier = ">=0.115" },
+    { name = "httpx", marker = "extra == 'server'", specifier = ">=0.28" },
     { name = "huggingface-hub", specifier = ">=0.27" },
     { name = "librosa", marker = "extra == 'evaluation'", specifier = ">=0.11" },
     { name = "mlx", specifier = ">=0.31.1" },

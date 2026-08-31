@@ -125,6 +125,15 @@ def _parser() -> argparse.ArgumentParser:
     parity_apply.add_argument("evidence", type=Path)
     parity_apply.add_argument("--output", type=Path, required=True)
 
+    http_probe = sub.add_parser("probe-http")
+    http_probe.add_argument("--model", required=True)
+    http_probe.add_argument("--output", type=Path, required=True)
+
+    http_apply = sub.add_parser("apply-http-evidence")
+    http_apply.add_argument("summary", type=Path)
+    http_apply.add_argument("evidence", type=Path)
+    http_apply.add_argument("--output", type=Path, required=True)
+
     quantization_compare = sub.add_parser("compare-quantization")
     quantization_compare.add_argument("full", type=Path)
     quantization_compare.add_argument("sensitive", type=Path)
@@ -295,6 +304,19 @@ def main(argv=None) -> int:
         from .parity import apply_parity_evidence
 
         output = apply_parity_evidence(args.summary, args.evidence, args.output)
+        print(output)
+        return 0
+    if args.command == "probe-http":
+        from .http_evidence import capture_http_evidence, http_report_passes
+
+        output = capture_http_evidence(args.model, args.output)
+        report = json.loads(output.read_text())
+        print(output)
+        return 0 if http_report_passes(report) else 1
+    if args.command == "apply-http-evidence":
+        from .http_evidence import apply_http_evidence
+
+        output = apply_http_evidence(args.summary, args.evidence, args.output)
         print(output)
         return 0
     if args.command == "compare-quantization":

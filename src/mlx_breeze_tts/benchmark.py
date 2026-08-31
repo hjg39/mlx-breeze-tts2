@@ -11,8 +11,8 @@ import numpy as np
 
 from .matrix import build_acceptance_matrix, matrix_coverage, reference_pair
 from .objective import objective_template
-from .reporting import render_report_bundle
 from .provenance import checkpoint_provenance
+from .reporting import render_report_bundle
 
 
 def _resolve_model_path(model_id: str) -> Path:
@@ -41,19 +41,30 @@ def _write_audio(path: Path, audio, sample_rate: int) -> None:
 
 def _probe_http(model, seed: int) -> dict:
     try:
-        from fastapi.testclient import TestClient
+        import asyncio
+
+        from httpx import ASGITransport, AsyncClient
 
         from .server import create_app
 
-        with TestClient(create_app(model=model)) as client:
-            health = client.get("/health")
-            speech = client.post(
-                "/v1/audio/speech",
-                data={
-                    "text": "HTTP interface validation completed successfully.",
-                    "seed": str(seed),
-                },
+        async def request_pair():
+            transport = ASGITransport(
+                app=create_app(model=model, inline_inference=True)
             )
+            async with AsyncClient(
+                transport=transport, base_url="http://mlx-breeze.local"
+            ) as client:
+                health = await client.get("/health")
+                speech = await client.post(
+                    "/v1/audio/speech",
+                    data={
+                        "text": "HTTP interface validation completed successfully.",
+                        "seed": str(seed),
+                    },
+                )
+            return health, speech
+
+        health, speech = asyncio.run(request_pair())
         checks = {
             "health_200": health.status_code == 200,
             "health_sample_rate": health.json().get("sample_rate") == 24_000,
@@ -64,10 +75,14 @@ def _probe_http(model, seed: int) -> dict:
             "cache_control": speech.headers.get("cache-control") == "no-store",
             "nonempty_even_pcm": bool(speech.content) and len(speech.content) % 2 == 0,
         }
-        return {
+        report = {
             "status": "pass" if all(checks.values()) else "fail",
             "checks": checks,
+            "speech_status_code": speech.status_code,
         }
+        if speech.status_code != 200:
+            report["speech_response"] = speech.text[:1000]
+        return report
     except ImportError as exc:
         return {"status": "pending", "detail": f"server extra unavailable: {exc}"}
     except Exception as exc:
