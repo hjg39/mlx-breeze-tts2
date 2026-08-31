@@ -11,6 +11,14 @@ def _metric(value, digits: int = 3) -> str:
         return "pending"
 
 
+def _flag(value) -> str:
+    if value is True:
+        return "yes"
+    if value is False:
+        return "no"
+    return "pending"
+
+
 def benchmark_markdown(report: dict) -> str:
     lines = [
         "# MLX Breeze TTS 2 benchmark",
@@ -19,8 +27,8 @@ def benchmark_markdown(report: dict) -> str:
         f"- Model path: `{report['resolved_model_path']}`",
         f"- Overall status: `{report['status']}`",
         "",
-        "| Capability | Duration | Elapsed | RTF | CER | Cosine | Leakage | Clipping | Status |",
-        "|---|---:|---:|---:|---:|---:|---:|---:|---|",
+        "| Capability | Duration | Elapsed | RTF | CER | Cosine | Leakage | Clipping | Repeat tail | Stream break | Status |",
+        "|---|---:|---:|---:|---:|---:|---:|---:|---|---|---|",
     ]
     for item in report["samples"]:
         lines.append(
@@ -28,11 +36,22 @@ def benchmark_markdown(report: dict) -> str:
             f"{item['elapsed_s']:.2f}s | {item['rtf']:.2f} | "
             f"{_metric(item.get('cer'))} | {_metric(item.get('speaker_cosine'))} | "
             f"{_metric(item.get('reference_leakage'))} | "
-            f"{item['clipping_fraction']:.6f} | {item['status']} |"
+            f"{item['clipping_fraction']:.6f} | {_flag(item.get('repeated_tail'))} | "
+            f"{_flag(item.get('stream_discontinuity'))} | {item['status']} |"
         )
     validation = report.get("validation", {})
+    performance = report.get("performance", {})
     lines.extend(
         [
+            "",
+            "## Performance",
+            "",
+            f"- Model load: `{_metric(performance.get('load_time_s'))} s`",
+            f"- Load peak memory: `{_metric(performance.get('load_peak_memory_gb'))} GB`",
+            f"- Run peak memory: `{_metric(performance.get('peak_memory_gb'))} GB`",
+            f"- Steady-state RTF: `{_metric(performance.get('steady_state_rtf'))}`",
+            f"- Long-text RTF: `{_metric(performance.get('long_text_rtf'))}`",
+            f"- Streaming TTFA: `{_metric(performance.get('streaming_ttfa_s'))} s`",
             "",
             "## Validation gates",
             "",
@@ -40,6 +59,8 @@ def benchmark_markdown(report: dict) -> str:
             f"- Minimum clone cosine: `{_metric(validation.get('clone_cosine_min'), 4)}`",
             f"- Minimum clone P10: `{_metric(validation.get('clone_p10_min'), 4)}`",
             f"- Maximum reference leakage: `{_metric(validation.get('leakage_max'), 4)}`",
+            f"- Waveform integrity: `{validation.get('waveform_integrity', 'pending')}`",
+            f"- PyTorch parity: `{validation.get('pytorch_parity', 'pending')}`",
             f"- Manual listening: `{validation.get('manual_listening', 'pending')}`",
             "",
             "ASR, speaker similarity, leakage, and manual listening are explicitly "
@@ -70,6 +91,8 @@ def listening_html(report: dict) -> str:
     <dt>RTF</dt><dd class="{rtf_class}">{rtf:.2f}</dd>
     <dt>Peak / RMS</dt><dd>{item["peak_dbfs"]:.1f} / {item["rms_dbfs"]:.1f} dBFS</dd>
     <dt>Clipping</dt><dd>{item["clipping_fraction"]:.6f}</dd>
+    <dt>Repeated tail</dt><dd>{_flag(item.get("repeated_tail"))}</dd>
+    <dt>Stream break</dt><dd>{_flag(item.get("stream_discontinuity"))} (max jump {_metric(item.get("stream_boundary_jump_max"), 4)})</dd>
     <dt>ASR</dt><dd>{html.escape(str(item.get("asr_text") or item.get("asr", "pending")))}</dd>
     <dt>CER</dt><dd>{_metric(item.get("cer"), 4)}</dd>
     <dt>Speaker cosine / P10</dt><dd>{_metric(item.get("speaker_cosine"), 4)} / {_metric(item.get("speaker_p10"), 4)}</dd>

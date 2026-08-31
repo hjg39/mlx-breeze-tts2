@@ -54,7 +54,10 @@ def verify_evidence_bundle(root: str | Path) -> dict:
             root / variant / "summary.metrics.json",
             root / variant / "summary.json",
         )
-        path = next((candidate for candidate in candidates if candidate.is_file()), candidates[-1])
+        path = next(
+            (candidate for candidate in candidates if candidate.is_file()),
+            candidates[-1],
+        )
         if not path.is_file():
             _issue(issues, variant, "summary", f"missing {path}")
             continue
@@ -121,6 +124,33 @@ def verify_evidence_bundle(root: str | Path) -> dict:
             _issue(issues, variant, "seed", "fixed-seed reproducibility not pass")
         if validation.get("sampling_path") != "pass":
             _issue(issues, variant, "sampling", "sampling controls not proven")
+        if validation.get("waveform_integrity") != "pass":
+            _issue(
+                issues,
+                variant,
+                "waveform_integrity",
+                "non-finite/clipping/repeated-tail/stream continuity checks not pass",
+            )
+        if validation.get("pytorch_parity") != "pass":
+            _issue(issues, variant, "pytorch_parity", "PyTorch parity is not pass")
+
+        performance = report.get("performance", {})
+        for metric in (
+            "load_time_s",
+            "load_peak_memory_gb",
+            "peak_memory_gb",
+            "steady_state_rtf",
+            "long_text_rtf",
+            "streaming_ttfa_s",
+        ):
+            value = _number(performance.get(metric), -1.0)
+            if value < 0 or not value < float("inf"):
+                _issue(
+                    issues,
+                    variant,
+                    "performance",
+                    f"{metric} is missing or invalid",
+                )
 
         for filename in ("report.md", "index.html"):
             if not (root / variant / filename).is_file():

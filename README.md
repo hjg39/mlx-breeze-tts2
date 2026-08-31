@@ -10,7 +10,7 @@ inference passed on an Apple M3 Max; a fresh standalone Metal run, official BF16
 conversion, 8-bit run, PyTorch parity, and manual event listening remain
 `pending`.
 
-The current automated handoff is `35 passed, 2 Metal-dependent modules skipped`;
+The current automated handoff is `37 passed, 2 Metal-dependent modules skipped`;
 wheel and source distributions build successfully with
 `uv build --no-build-isolation`.
 
@@ -118,7 +118,10 @@ mlx-breeze-tts2 verify-evidence reports/full_matrix \
 
 It exits non-zero until strict artifact audits, the complete capability/event
 matrix, CER/speaker/leakage thresholds, interfaces, reproducibility, WAVs,
-Markdown, and listening HTML are all present and passing.
+Markdown, and listening HTML are all present and passing. It also requires
+finite load/RTF/TTFA/memory measurements, PyTorch parity, and waveform-integrity
+evidence covering non-finite output, severe clipping, repeated tails, and stream
+boundary discontinuities.
 
 Run the complete 23-case matrix with separate exact English and Chinese
 reference pairs. It covers both languages for design/clone/direction,

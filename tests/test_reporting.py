@@ -35,6 +35,8 @@ def test_markdown_contains_metrics_and_pending_boundary():
     assert "voice_design_en" in output
     assert "1.10" in output
     assert "`pending`" in output
+    assert "PyTorch parity" in output
+    assert "Streaming TTFA" in output
 
 
 def test_listening_html_has_audio_controls_and_escaped_content():
@@ -45,6 +47,8 @@ def test_listening_html_has_audio_controls_and_escaped_content():
     assert "Manual listening" in output
     assert "Export manual_reviews.json" in output
     assert 'data-field="manual_event"' in output
+    assert "Repeated tail" in output
+    assert "Stream break" in output
 
 
 def test_report_bundle_writes_markdown_and_listening_pages(tmp_path):

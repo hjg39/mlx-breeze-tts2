@@ -30,6 +30,21 @@ def test_pending_numeric_fields_fail_closed_instead_of_crashing(tmp_path):
     assert any(item["gate"] == "speaker" for item in report["issues"])
 
 
+def test_missing_parity_waveform_and_performance_fail_closed(tmp_path):
+    for variant in REQUIRED_VARIANTS:
+        _write_complete_variant(tmp_path, variant)
+    path = tmp_path / "bf16/summary.json"
+    summary = json.loads(path.read_text())
+    summary["validation"].pop("pytorch_parity")
+    summary["validation"].pop("waveform_integrity")
+    summary["performance"].pop("streaming_ttfa_s")
+    path.write_text(json.dumps(summary))
+
+    report = verify_evidence_bundle(tmp_path)
+    gates = {item["gate"] for item in report["issues"] if item["variant"] == "bf16"}
+    assert {"pytorch_parity", "waveform_integrity", "performance"} <= gates
+
+
 def _write_complete_variant(root: Path, variant: str):
     directory = root / variant
     directory.mkdir()
@@ -59,6 +74,16 @@ def _write_complete_variant(root: Path, variant: str):
             "leakage_max": 0.64,
             "seed_reproducibility": "pass",
             "sampling_path": "pass",
+            "waveform_integrity": "pass",
+            "pytorch_parity": "pass",
+        },
+        "performance": {
+            "load_time_s": 1.0,
+            "load_peak_memory_gb": 2.0,
+            "peak_memory_gb": 3.0,
+            "steady_state_rtf": 1.5,
+            "long_text_rtf": 1.8,
+            "streaming_ttfa_s": 0.5,
         },
     }
     (directory / "summary.json").write_text(json.dumps(summary))

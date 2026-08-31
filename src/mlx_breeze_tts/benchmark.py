@@ -88,6 +88,43 @@ def _audio_metrics(audio, sample_rate: int) -> dict:
     }
 
 
+def _waveform_diagnostics(
+    audio, sample_rate: int, chunk_lengths: list[int] | None = None
+) -> dict:
+    """Detect non-finite output, exact-like repeated tails, and stream jumps."""
+    values = np.asarray(audio, dtype=np.float32).reshape(-1)
+    finite = values[np.isfinite(values)]
+    nonfinite_count = int(values.size - finite.size)
+    clipping_fraction = float(np.mean(np.abs(finite) >= 0.999)) if finite.size else 0.0
+
+    window = min(sample_rate // 2, values.size // 2)
+    tail_similarity = None
+    repeated_tail = False
+    if window >= max(32, sample_rate // 20):
+        previous = values[-2 * window : -window]
+        tail = values[-window:]
+        denominator = float(np.linalg.norm(previous) * np.linalg.norm(tail))
+        if denominator > 1e-8:
+            tail_similarity = float(np.dot(previous, tail) / denominator)
+            repeated_tail = tail_similarity >= 0.995
+
+    boundary_jumps = []
+    offset = 0
+    for length in (chunk_lengths or [])[:-1]:
+        offset += length
+        if 0 < offset < values.size:
+            boundary_jumps.append(float(abs(values[offset] - values[offset - 1])))
+    max_boundary_jump = max(boundary_jumps, default=0.0)
+    return {
+        "nonfinite_count": nonfinite_count,
+        "severe_clipping": clipping_fraction > 0.001,
+        "tail_repeat_similarity": tail_similarity,
+        "repeated_tail": repeated_tail,
+        "stream_boundary_jump_max": max_boundary_jump,
+        "stream_discontinuity": max_boundary_jump > 0.5,
+    }
+
+
 def run_benchmark(
     model_id: str,
     output: str | Path,
@@ -155,6 +192,7 @@ def run_benchmark(
         elapsed_runs = []
         rtf_runs = []
         arrays = []
+        chunk_lengths = []
         chunks = []
         first_chunk = None
         for _ in range(repetitions):
@@ -200,6 +238,7 @@ def run_benchmark(
             elapsed_runs.append(elapsed)
             rtf_runs.append(elapsed / max(metrics["duration_s"], 1e-6))
             arrays.append(np.asarray(audio, dtype=np.float32))
+            chunk_lengths = [int(np.asarray(chunk.audio).size) for chunk in chunks]
 
         elapsed = elapsed_runs[-1]
         audio_values = arrays[-1]
@@ -207,6 +246,9 @@ def run_benchmark(
         filename = f"{case['capability']}.wav"
         _write_audio(output / filename, audio, model.sample_rate)
         metrics = _audio_metrics(audio, model.sample_rate)
+        diagnostics = _waveform_diagnostics(
+            audio, model.sample_rate, chunk_lengths if case.get("stream") else None
+        )
         reproducible = (
             all(np.array_equal(arrays[0], item) for item in arrays[1:])
             if equality_repetitions > 1
@@ -216,21 +258,21 @@ def run_benchmark(
             {
                 **case,
                 **metrics,
+                **diagnostics,
                 "expected_text": case.get("post_cancel_text", case["text"]),
                 "audio": filename,
                 "elapsed_s": elapsed,
                 "rtf": rtf_runs[-1],
                 "peak_memory_gb": mx.get_peak_memory() / 1e9,
-                "chunks": len(chunks) + (1 if case.get("cancel_after_first_chunk") else 0),
+                "chunks": len(chunks)
+                + (1 if case.get("cancel_after_first_chunk") else 0),
                 "ttfa_s": first_chunk.time_to_first_audio_seconds
                 if case.get("stream") and first_chunk
                 else None,
                 "elapsed_runs_s": elapsed_runs,
                 "rtf_runs": rtf_runs,
                 "steady_state_rtf": (
-                    sum(rtf_runs[1:]) / len(rtf_runs[1:])
-                    if iterations > 1
-                    else None
+                    sum(rtf_runs[1:]) / len(rtf_runs[1:]) if iterations > 1 else None
                 ),
                 "seed_exact_match": reproducible,
                 "status": "audio_generated" if metrics["samples"] else "empty_audio",
@@ -247,8 +289,16 @@ def run_benchmark(
     sampling_pass = (
         by_capability.get("sampling_controls", {}).get("status") == "audio_generated"
     )
-    seed_pass = by_capability.get("seed_reproducibility", {}).get(
-        "seed_exact_match"
+    seed_pass = by_capability.get("seed_reproducibility", {}).get("seed_exact_match")
+    waveform_pass = all(
+        sample.get("status") == "missing_input"
+        or (
+            sample.get("nonfinite_count") == 0
+            and not sample.get("severe_clipping")
+            and not sample.get("repeated_tail")
+            and not sample.get("stream_discontinuity")
+        )
+        for sample in samples
     )
     http_probe = _probe_http(model, seed) if probe_http else {"status": "pending"}
     report = {
@@ -277,7 +327,9 @@ def run_benchmark(
         "performance": {
             "load_time_s": load_time,
             "load_peak_memory_gb": load_peak_memory_gb,
-            "peak_memory_gb": mx.get_peak_memory() / 1e9,
+            "peak_memory_gb": max(
+                (sample["peak_memory_gb"] for sample in samples), default=0.0
+            ),
             "steady_state_rtf": by_capability.get("steady_state", {}).get(
                 "steady_state_rtf"
             ),
@@ -292,6 +344,8 @@ def run_benchmark(
             "leakage_max": None,
             "seed_reproducibility": "pass" if seed_pass else "fail",
             "sampling_path": "pass" if sampling_pass else "fail",
+            "waveform_integrity": "pass" if waveform_pass else "fail",
+            "pytorch_parity": "pending",
             "manual_listening": "pending",
         },
     }
