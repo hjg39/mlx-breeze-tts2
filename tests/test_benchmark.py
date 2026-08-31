@@ -79,6 +79,7 @@ def test_full_benchmark_emits_complete_fail_closed_bundle(tmp_path, monkeypatch)
     assert report["validation"]["sampling_path"] == "pass"
     assert (tmp_path / "report/report.md").is_file()
     assert (tmp_path / "report/index.html").is_file()
+    assert (tmp_path / "report/objective_metrics.json").is_file()
 
 
 def test_benchmark_records_missing_reference_cases(tmp_path, monkeypatch):

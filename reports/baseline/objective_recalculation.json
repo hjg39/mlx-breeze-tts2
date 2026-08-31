@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "created_at": "2026-08-31",
+  "source": "reports/baseline/summary.json",
+  "scope": "precursor MLX implementation evidence; not standalone three-variant evidence",
+  "algorithm": {
+    "cer": "event-aware normalized character edit distance",
+    "reference_leakage": "normalized SequenceMatcher ratio matching mlx-tts/scripts/asr_check.py",
+    "speaker": "existing SpeechBrain ECAPA cosine and segmented P10"
+  },
+  "samples": [
+    {
+      "capability": "voice_design_en",
+      "cer": 0.0
+    },
+    {
+      "capability": "voice_clone_en",
+      "cer": 0.0,
+      "reference_leakage": 0.21935483870967742,
+      "speaker_cosine": 0.775864338874817,
+      "speaker_p10": 0.7745399475097656
+    },
+    {
+      "capability": "voice_direction_en",
+      "cer": 0.0
+    },
+    {
+      "capability": "voice_design_zh_event",
+      "cer": 0.0
+    },
+    {
+      "capability": "streaming_en",
+      "cer": 0.0
+    }
+  ],
+  "aggregate": {
+    "max_cer": 0.0,
+    "clone_cosine": 0.775864338874817,
+    "clone_p10": 0.7745399475097656,
+    "leakage": 0.21935483870967742
+  },
+  "status": "pass_for_metric_crosscheck_only"
+}

@@ -1,6 +1,14 @@
 """Pure report renderers shared by benchmark and offline evidence tests."""
 
 import html
+from pathlib import Path
+
+
+def _metric(value, digits: int = 3) -> str:
+    try:
+        return f"{float(value):.{digits}f}"
+    except (TypeError, ValueError):
+        return "pending"
 
 
 def benchmark_markdown(report: dict) -> str:
@@ -11,17 +19,28 @@ def benchmark_markdown(report: dict) -> str:
         f"- Model path: `{report['resolved_model_path']}`",
         f"- Overall status: `{report['status']}`",
         "",
-        "| Capability | Duration | Elapsed | RTF | Clipping | Status |",
-        "|---|---:|---:|---:|---:|---|",
+        "| Capability | Duration | Elapsed | RTF | CER | Cosine | Leakage | Clipping | Status |",
+        "|---|---:|---:|---:|---:|---:|---:|---:|---|",
     ]
     for item in report["samples"]:
         lines.append(
             f"| {item['capability']} | {item['duration_s']:.2f}s | "
             f"{item['elapsed_s']:.2f}s | {item['rtf']:.2f} | "
+            f"{_metric(item.get('cer'))} | {_metric(item.get('speaker_cosine'))} | "
+            f"{_metric(item.get('reference_leakage'))} | "
             f"{item['clipping_fraction']:.6f} | {item['status']} |"
         )
+    validation = report.get("validation", {})
     lines.extend(
         [
+            "",
+            "## Validation gates",
+            "",
+            f"- Maximum CER: `{_metric(validation.get('max_cer'), 4)}`",
+            f"- Minimum clone cosine: `{_metric(validation.get('clone_cosine_min'), 4)}`",
+            f"- Minimum clone P10: `{_metric(validation.get('clone_p10_min'), 4)}`",
+            f"- Maximum reference leakage: `{_metric(validation.get('leakage_max'), 4)}`",
+            f"- Manual listening: `{validation.get('manual_listening', 'pending')}`",
             "",
             "ASR, speaker similarity, leakage, and manual listening are explicitly "
             "`pending` unless their report fields contain measured evidence.",
@@ -51,8 +70,10 @@ def listening_html(report: dict) -> str:
     <dt>RTF</dt><dd class="{rtf_class}">{rtf:.2f}</dd>
     <dt>Peak / RMS</dt><dd>{item["peak_dbfs"]:.1f} / {item["rms_dbfs"]:.1f} dBFS</dd>
     <dt>Clipping</dt><dd>{item["clipping_fraction"]:.6f}</dd>
-    <dt>ASR</dt><dd>{html.escape(str(item.get("asr", "pending")))}</dd>
-    <dt>Speaker similarity</dt><dd>{html.escape(str(item.get("speaker_similarity", "pending")))}</dd>
+    <dt>ASR</dt><dd>{html.escape(str(item.get("asr_text") or item.get("asr", "pending")))}</dd>
+    <dt>CER</dt><dd>{_metric(item.get("cer"), 4)}</dd>
+    <dt>Speaker cosine / P10</dt><dd>{_metric(item.get("speaker_cosine"), 4)} / {_metric(item.get("speaker_p10"), 4)}</dd>
+    <dt>Reference leakage</dt><dd>{_metric(item.get("reference_leakage"), 4)}</dd>
   </dl>
   <fieldset><legend>Manual listening</legend>
     <label>Content <select data-field="manual_content"><option>pending</option><option>pass</option><option>fail</option></select></label>
@@ -93,3 +114,13 @@ document.querySelector('#export').addEventListener('click',()=>{{
   link.download='manual_reviews.json'; link.click(); URL.revokeObjectURL(link.href);
 }});
 </script></body></html>"""
+
+
+def render_report_bundle(report: dict, output: str | Path) -> Path:
+    output = Path(output).expanduser()
+    output.mkdir(parents=True, exist_ok=True)
+    (output / "report.md").write_text(benchmark_markdown(report))
+    rendered_html = listening_html(report)
+    (output / "index.html").write_text(rendered_html)
+    (output / "report.html").write_text(rendered_html)
+    return output

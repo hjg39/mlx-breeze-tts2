@@ -48,8 +48,13 @@ def verify_evidence_bundle(root: str | Path) -> dict:
     issues: list[dict] = []
     checked = []
     for variant in REQUIRED_VARIANTS:
-        reviewed = root / variant / "summary.reviewed.json"
-        path = reviewed if reviewed.is_file() else root / variant / "summary.json"
+        candidates = (
+            root / variant / "summary.final.json",
+            root / variant / "summary.reviewed.json",
+            root / variant / "summary.metrics.json",
+            root / variant / "summary.json",
+        )
+        path = next((candidate for candidate in candidates if candidate.is_file()), candidates[-1])
         if not path.is_file():
             _issue(issues, variant, "summary", f"missing {path}")
             continue

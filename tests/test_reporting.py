@@ -1,4 +1,8 @@
-from mlx_breeze_tts.reporting import benchmark_markdown, listening_html
+from mlx_breeze_tts.reporting import (
+    benchmark_markdown,
+    listening_html,
+    render_report_bundle,
+)
 
 
 def _report():
@@ -41,3 +45,10 @@ def test_listening_html_has_audio_controls_and_escaped_content():
     assert "Manual listening" in output
     assert "Export manual_reviews.json" in output
     assert 'data-field="manual_event"' in output
+
+
+def test_report_bundle_writes_markdown_and_listening_pages(tmp_path):
+    output = render_report_bundle(_report(), tmp_path)
+    assert (output / "report.md").is_file()
+    assert (output / "index.html").is_file()
+    assert (output / "report.html").read_text() == (output / "index.html").read_text()

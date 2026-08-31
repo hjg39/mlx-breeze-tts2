@@ -72,6 +72,19 @@ def _parser() -> argparse.ArgumentParser:
     inputs.add_argument("manifest", type=Path)
     inputs.add_argument("--output", type=Path)
 
+    objective_template_parser = sub.add_parser("objective-template")
+    objective_template_parser.add_argument("summary", type=Path)
+    objective_template_parser.add_argument("--output", type=Path, required=True)
+
+    objective_apply = sub.add_parser("apply-objective-metrics")
+    objective_apply.add_argument("summary", type=Path)
+    objective_apply.add_argument("metrics", type=Path)
+    objective_apply.add_argument("--output", type=Path, required=True)
+
+    render = sub.add_parser("render-report")
+    render.add_argument("summary", type=Path)
+    render.add_argument("--output", type=Path, required=True)
+
     serve = sub.add_parser("serve")
     serve.add_argument("--model", default=DEFAULT_MODEL)
     serve.add_argument("--host", default="127.0.0.1")
@@ -167,6 +180,25 @@ def main(argv=None) -> int:
             args.output.write_text(rendered)
         print(rendered)
         return 0 if report["pass"] else 1
+    if args.command == "objective-template":
+        from .objective import objective_template
+
+        output = objective_template(args.summary, args.output)
+        print(output)
+        return 0
+    if args.command == "apply-objective-metrics":
+        from .objective import apply_objective_metrics
+
+        output = apply_objective_metrics(args.summary, args.metrics, args.output)
+        print(output)
+        return 0
+    if args.command == "render-report":
+        from .reporting import render_report_bundle
+
+        report = json.loads(args.summary.read_text())
+        output = render_report_bundle(report, args.output)
+        print(output)
+        return 0
 
     import mlx.core as mx
 

@@ -32,10 +32,12 @@ and `THIRD_PARTY_NOTICES.md`.
 | 4-bit voice design / clone / direction / ZH event / streaming on M3 Max | pass on precursor implementation | `reports/baseline/summary.json` and WAVs |
 | ASR content fidelity in five baseline cases | pass | Whisper large-v3-turbo, zero failures |
 | Clone speaker similarity | pass | ECAPA cosine `0.775864`, threshold `0.25` |
-| Metal-independent standalone tests | pass | 29 passed, 0 failed |
+| Metal-independent standalone tests | pass | 33 passed, 0 failed |
 | Approved acceptance-matrix coverage | pass | 23 deterministic cases; complete required capability/event set; fake-runtime report and real FastAPI contract tests |
 | Manual listening evidence workflow | pass | HTML JSON export plus validated, non-destructive CLI merge tests |
 | EN/ZH evaluation references | pass for local internal evaluation | `reports/full_matrix/input_manifest.json` and `input_validation.json`; files exist, mono 24 kHz PCM16, exact registry transcripts and SHA-256 verified |
+| Objective metric integration | pass | validated ASR/ECAPA worksheet merge; event-aware CER, skill-compatible leakage similarity, min cosine/P10 aggregation, missing values fail closed |
+| Objective metric baseline cross-check | pass on precursor evidence | `reports/baseline/objective_recalculation.json`; max CER 0.0, leakage 0.2194, ECAPA cosine/P10 0.7759/0.7745 |
 | 4-bit safetensors/index static preflight | pass | `reports/baseline/checkpoint_static_audit.json`; 1,234 tensors, no index inconsistency |
 | Standalone MLX architecture/model tests | pending | 2 modules skipped because this execution sandbox cannot initialize Metal |
 | Standalone 4-bit real-device run | pending | current execution sandbox cannot initialize Metal |

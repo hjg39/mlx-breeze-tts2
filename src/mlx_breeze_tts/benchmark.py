@@ -10,7 +10,8 @@ from pathlib import Path
 import numpy as np
 
 from .matrix import build_acceptance_matrix, matrix_coverage, reference_pair
-from .reporting import benchmark_markdown, listening_html
+from .objective import objective_template
+from .reporting import render_report_bundle
 
 
 def _resolve_model_path(model_id: str) -> Path:
@@ -215,6 +216,7 @@ def run_benchmark(
             {
                 **case,
                 **metrics,
+                "expected_text": case.get("post_cancel_text", case["text"]),
                 "audio": filename,
                 "elapsed_s": elapsed,
                 "rtf": rtf_runs[-1],
@@ -295,9 +297,6 @@ def run_benchmark(
     }
     json_path = output / "summary.json"
     json_path.write_text(json.dumps(report, ensure_ascii=False, indent=2))
-    markdown = benchmark_markdown(report)
-    (output / "report.md").write_text(markdown)
-    rendered_html = listening_html(report)
-    (output / "index.html").write_text(rendered_html)
-    (output / "report.html").write_text(rendered_html)
+    objective_template(json_path, output / "objective_metrics.json")
+    render_report_bundle(report, output)
     return json_path

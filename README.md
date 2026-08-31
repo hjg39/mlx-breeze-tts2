@@ -10,7 +10,7 @@ inference passed on an Apple M3 Max; a fresh standalone Metal run, official BF16
 conversion, 8-bit run, PyTorch parity, and manual event listening remain
 `pending`.
 
-The current automated handoff is `29 passed, 2 Metal-dependent modules skipped`;
+The current automated handoff is `33 passed, 2 Metal-dependent modules skipped`;
 wheel and source distributions build successfully with
 `uv build --no-build-isolation`.
 
@@ -139,17 +139,36 @@ mlx-breeze-tts2 benchmark \
 Missing reference pairs are retained as `missing_input` cases, never silently
 removed. Automated generation does not mark vocal events audible; reviewers
 must record those eight verdicts after listening to `index.html`. Use its
-**Export manual_reviews.json** button, then merge without overwriting the raw
-summary:
+**Export manual_reviews.json** button.
+
+Generate the objective-metric worksheet, fill `asr_text` plus ECAPA
+`speaker_cosine`/`speaker_p10`, and merge it without overwriting the raw report.
+CER and reference leakage are computed deterministically during the merge:
+
+```bash
+mlx-breeze-tts2 objective-template \
+  reports/full_matrix/4bit/summary.json \
+  --output reports/full_matrix/4bit/objective_metrics.json
+mlx-breeze-tts2 apply-objective-metrics \
+  reports/full_matrix/4bit/summary.json \
+  reports/full_matrix/4bit/objective_metrics.json \
+  --output reports/full_matrix/4bit/summary.metrics.json
+```
+
+Finally merge listening verdicts into the metrics-bearing summary:
 
 ```bash
 mlx-breeze-tts2 apply-listening-review \
-  reports/full_matrix/4bit/summary.json manual_reviews.json \
-  --output reports/full_matrix/4bit/summary.reviewed.json
+  reports/full_matrix/4bit/summary.metrics.json manual_reviews.json \
+  --output reports/full_matrix/4bit/summary.final.json
+mlx-breeze-tts2 render-report \
+  reports/full_matrix/4bit/summary.final.json \
+  --output reports/full_matrix/4bit
 ```
 
-`verify-evidence` automatically prefers `summary.reviewed.json` when present,
-while retaining the untouched generation summary as provenance.
+`verify-evidence` prefers `summary.final.json`, then reviewed/metrics summaries,
+while retaining the untouched generation summary as provenance. Missing ASR,
+speaker, leakage, or listening values remain pending and fail closed.
 
 The pinned local English/Chinese reference paths, exact transcripts, observed
 audio properties, hashes, and usage boundary are recorded in
