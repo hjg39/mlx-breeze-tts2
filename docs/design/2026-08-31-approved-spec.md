@@ -3,7 +3,7 @@
 ## 1. 文档状态
 
 - 日期：2026-08-31
-- 状态：设计已获用户确认，等待文档复核
+- 状态：设计与规格已获用户确认
 - 目标项目：`/Users/vanch/mlx-breeze-tts2`
 - 目标平台：Apple Silicon macOS，首测机器为 Apple M3 Max、128 GB 统一内存
 - 上游源码：`breezeblue-ai/breeze-tts`
@@ -207,6 +207,8 @@ CLI/Python 可公开更多采样参数；HTTP 兼容端点不擅自扩张官方�
 6. 量化规则按模块显式声明；norm、小尺寸 embedding、敏感 codec 层是否保留 BF16由消融证据决定。
 7. artifact metadata记录上游 revision、转换器版本、量化参数、文件哈希和生成时间。
 8. 任何宽松加载只能用于诊断，不能进入发布或最终 benchmark。
+9. 磁盘受限时允许 BF16 候选工件与固定 revision 官方 safetensors 使用
+   同卷硬链接；静态索引审计不能替代 Metal 进程中的严格模型加载审计。
 
 ## 9. 错误处理与资源安全
 

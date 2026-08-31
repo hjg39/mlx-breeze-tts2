@@ -10,8 +10,9 @@ inference passed on an Apple M3 Max; a fresh standalone Metal run, official BF16
 conversion, 8-bit run, PyTorch parity, and manual event listening remain
 `pending`.
 
-The current automated handoff is `9 passed, 2 Metal-dependent modules skipped`;
-wheel and source distributions build successfully.
+The current automated handoff is `17 passed, 2 Metal-dependent modules skipped`;
+wheel and source distributions build successfully with
+`uv build --no-build-isolation`.
 
 ## Capabilities
 
@@ -77,6 +78,23 @@ write_audio("output.wav", result.audio, result.sample_rate)
 
 The converter is fail-closed: source weights must load strictly and the saved
 artifact must pass a second key audit.
+
+When disk space cannot safely hold both the 7.68 GB official snapshot and a
+second BF16 copy, create a same-volume hard-linked BF16 candidate. This keeps
+the immutable safetensors blocks shared while copying mutable metadata. It is
+only a candidate until the Metal-dependent strict audit passes:
+
+```bash
+mlx-breeze-tts2 link-bf16 \
+  --source /absolute/path/to/pinned-official-snapshot \
+  --output models/breeze-bf16
+mlx-breeze-tts2 inspect-checkpoint models/breeze-bf16
+mlx-breeze-tts2 audit models/breeze-bf16
+```
+
+`link-bf16` is local-only, rejects quantized or non-BF16 sources, verifies the
+safetensors index without importing MLX, records hashes, and fails if source
+and output are on different filesystems.
 
 ```bash
 mlx-breeze-tts2 convert \

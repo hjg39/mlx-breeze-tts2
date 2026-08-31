@@ -36,6 +36,14 @@ def _parser() -> argparse.ArgumentParser:
     conversion.add_argument("--bits", type=int, choices=[4, 8])
     conversion.add_argument("--group-size", type=int, default=64)
 
+    linked = sub.add_parser("link-bf16")
+    linked.add_argument("--source", required=True, type=Path)
+    linked.add_argument("--output", required=True, type=Path)
+
+    inspect = sub.add_parser("inspect-checkpoint")
+    inspect.add_argument("model", type=Path)
+    inspect.add_argument("--output", type=Path)
+
     audit = sub.add_parser("audit", aliases=["audit-checkpoint"])
     audit.add_argument("model")
 
@@ -78,6 +86,22 @@ def main(argv=None) -> int:
         )
         print(destination)
         return 0
+    if args.command == "link-bf16":
+        from .artifacts import materialize_linked_bf16
+
+        destination = materialize_linked_bf16(args.source, args.output)
+        print(destination)
+        return 0
+    if args.command == "inspect-checkpoint":
+        from .artifacts import inspect_checkpoint
+
+        report = inspect_checkpoint(args.model)
+        rendered = json.dumps(report, indent=2)
+        if args.output:
+            args.output.parent.mkdir(parents=True, exist_ok=True)
+            args.output.write_text(rendered)
+        print(rendered)
+        return 0 if report["pass"] else 1
     if args.command == "serve":
         import uvicorn
 

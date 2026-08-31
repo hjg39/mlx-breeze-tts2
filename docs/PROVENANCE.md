@@ -26,12 +26,14 @@ and `THIRD_PARTY_NOTICES.md`.
 |---|---|---|
 | Production source contains no `mlx_audio` import | pass | `tests/test_isolation.py` |
 | Package compiles and wheel/sdist build | pass | `compileall`; `uv build --no-build-isolation` |
+| Built wheel installs and exposes static audit CLI | pass | isolated `/private/tmp` venv; `inspect-checkpoint` passed on pinned 4-bit snapshot |
 | Required CLI and HTTP surfaces exist | pass | dynamic fake-model API tests |
 | HTTP 400/409 behavior and temp cleanup | pass | `tests/test_public_surfaces.py` |
 | 4-bit voice design / clone / direction / ZH event / streaming on M3 Max | pass on precursor implementation | `reports/baseline/summary.json` and WAVs |
 | ASR content fidelity in five baseline cases | pass | Whisper large-v3-turbo, zero failures |
 | Clone speaker similarity | pass | ECAPA cosine `0.775864`, threshold `0.25` |
-| Metal-independent standalone tests | pass | 9 passed, 0 failed |
+| Metal-independent standalone tests | pass | 17 passed, 0 failed |
+| 4-bit safetensors/index static preflight | pass | `reports/baseline/checkpoint_static_audit.json`; 1,234 tensors, no index inconsistency |
 | Standalone MLX architecture/model tests | pending | 2 modules skipped because this execution sandbox cannot initialize Metal |
 | Standalone 4-bit real-device run | pending | current execution sandbox cannot initialize Metal |
 | Official BF16 conversion and inference | pending | source artifact not yet downloaded in this run |
@@ -47,7 +49,9 @@ artifact and exact command/revision used.
 - The execution sandbox reports `No Metal device available`; this prevents a
   fresh standalone model load even though the earlier precursor run used the
   same M3 Max successfully.
-- The data volume has `12,560,000 KiB` free (about 11.98 GiB). Holding the
-  roughly 7 GB official source checkpoint and roughly 7 GB BF16 MLX artifact
-  simultaneously, with conversion headroom, is unsafe. At least 20 GiB free is
-  required before running the official conversion matrix.
+- The data volume currently has about 14 GiB free. A normal duplicate BF16
+  conversion remains too close to the disk limit, so `link-bf16` now creates a
+  same-volume hard-linked candidate without duplicating safetensors blocks.
+- Browser security denied the official Hugging Face download. The pinned local
+  snapshot or explicit download permission is still required before BF16/8-bit
+  conversion can run.

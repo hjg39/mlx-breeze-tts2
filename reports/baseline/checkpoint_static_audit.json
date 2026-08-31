@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "audit_level": "static_preflight",
+  "path": "/Users/vanch/.cache/huggingface/hub/models--LunaFox--Breeze-TTS-2-mlx-4bit/snapshots/27be05f01bd8aad9628022c2bac6ded0119eef8a",
+  "files": [
+    {
+      "file": "model.safetensors",
+      "bytes": 2325487160,
+      "tensor_count": 1234
+    }
+  ],
+  "tensor_count": 1234,
+  "runtime_tensor_count_after_sanitize": 1234,
+  "embedded_codec_tensor_count": 0,
+  "dropped_generated_tensor_count": 0,
+  "runtime_tied_embedding_derived": true,
+  "dtype_counts": {
+    "BF16": 298,
+    "U32": 468,
+    "U8": 468
+  },
+  "runtime_dtype_counts_after_sanitize": {
+    "BF16": 298,
+    "U32": 468,
+    "U8": 468
+  },
+  "tensor_bytes": 2325337216,
+  "index": {
+    "present": true,
+    "key_count": 1234,
+    "missing_from_files": [],
+    "missing_from_index": [],
+    "wrong_files": []
+  },
+  "issues": [],
+  "pass": true,
+  "strict_metal_audit": "pending"
+}
