@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "created_at": "2026-08-31",
+  "reference_registry": "/Users/vanch/tts-test-project/data/reference_audio_registry.csv",
+  "references": {
+    "en": {
+      "reference_id": "dots_seedtts_en_ref",
+      "path": "/Users/vanch/tts-test-project/data/reference_audio/dots_seedtts_en_ref.wav",
+      "transcript": "The CrossLand acquisition gave Washington Mutual a toe hold entry into Oregon via Portland.",
+      "language": "en",
+      "observed_sample_rate": 24000,
+      "observed_channels": 1,
+      "observed_duration_s": 6.08,
+      "observed_subtype": "PCM_16",
+      "sha256": "427281c58d8a8fc3e928154c5165e16a169b0678fd98162dd95b4f5f3e13e57d",
+      "source_url": "https://rednote-hilab.github.io/dots.tts-demo/",
+      "license_status": "internal_only"
+    },
+    "zh": {
+      "reference_id": "dots_seedtts_zh_ref",
+      "path": "/Users/vanch/tts-test-project/data/reference_audio/dots_seedtts_zh_ref.wav",
+      "transcript": "冬天对于田野和河流来说，是一个放松休息的季节。",
+      "language": "zh",
+      "observed_sample_rate": 24000,
+      "observed_channels": 1,
+      "observed_duration_s": 6.464,
+      "observed_subtype": "PCM_16",
+      "sha256": "3497d2648a02bd33876f37509339b67b0dcec3917fdc18c1dfb2d79d579c6a57",
+      "source_url": "https://rednote-hilab.github.io/dots.tts-demo/",
+      "license_status": "internal_only"
+    }
+  },
+  "policy": {
+    "exact_transcript_required": true,
+    "single_speaker_required": true,
+    "formal_use_outside_this_machine": false
+  }
+}

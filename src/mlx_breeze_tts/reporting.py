@@ -40,7 +40,7 @@ def listening_html(report: dict) -> str:
         audio = html.escape(str(item["audio"]), quote=True)
         capability = html.escape(str(item["capability"]))
         cards.append(
-            f"""<article class="card">
+            f"""<article class="card" data-capability="{capability}">
   <h2>{capability}</h2>
   <audio controls preload="none" src="{audio}"></audio>
   <dl>
@@ -55,10 +55,10 @@ def listening_html(report: dict) -> str:
     <dt>Speaker similarity</dt><dd>{html.escape(str(item.get("speaker_similarity", "pending")))}</dd>
   </dl>
   <fieldset><legend>Manual listening</legend>
-    <label>Content <select><option>pending</option><option>pass</option><option>fail</option></select></label>
-    <label>Voice <select><option>pending</option><option>pass</option><option>fail</option><option>n/a</option></select></label>
-    <label>Event <select><option>pending</option><option>audible</option><option>missing</option><option>n/a</option></select></label>
-    <label>Notes <textarea rows="2"></textarea></label>
+    <label>Content <select data-field="manual_content"><option>pending</option><option>pass</option><option>fail</option></select></label>
+    <label>Voice <select data-field="manual_voice"><option>pending</option><option>pass</option><option>fail</option><option>n/a</option></select></label>
+    <label>Event <select data-field="manual_event"><option>pending</option><option>audible</option><option>missing</option><option>n/a</option></select></label>
+    <label>Notes <textarea data-field="manual_notes" rows="2"></textarea></label>
   </fieldset>
 </article>"""
         )
@@ -68,7 +68,7 @@ def listening_html(report: dict) -> str:
 <title>{title}</title>
 <style>
 :root{{color-scheme:dark;background:#0b0d12;color:#e8eaf0;font:15px system-ui}}
-body{{max-width:1180px;margin:32px auto;padding:0 18px}}
+body{{max-width:1180px;margin:32px auto;padding:0 18px}}button{{padding:9px 14px;margin-bottom:18px}}
 .meta{{color:#aeb5c5}}.grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:16px}}
 .card{{background:#151923;border:1px solid #2a3140;border-radius:14px;padding:18px}}
 audio{{width:100%}}dl{{display:grid;grid-template-columns:105px 1fr;gap:7px;margin:14px 0}}
@@ -78,5 +78,18 @@ label{{display:block;margin:8px 0}}select,textarea{{float:right;width:55%;backgr
 </style>
 <body><h1>MLX Breeze TTS 2 listening review</h1>
 <p class="meta">Created {html.escape(str(report["created_at"]))} · Model {html.escape(str(report["resolved_model_path"]))}</p>
-<p>Controls are reviewer worksheets only; record final decisions in the JSON evidence file.</p>
-<main class="grid">{"".join(cards)}</main></body></html>"""
+<p>Listen to every sample, record verdicts, then export the structured review.</p>
+<button id="export">Export manual_reviews.json</button>
+<main class="grid">{"".join(cards)}</main>
+<script>
+document.querySelector('#export').addEventListener('click',()=>{{
+  const reviews=[...document.querySelectorAll('.card')].map(card=>{{
+    const row={{capability:card.dataset.capability}};
+    card.querySelectorAll('[data-field]').forEach(input=>row[input.dataset.field]=input.value);
+    return row;
+  }});
+  const blob=new Blob([JSON.stringify({{schema_version:1,reviews}},null,2)],{{type:'application/json'}});
+  const link=document.createElement('a'); link.href=URL.createObjectURL(blob);
+  link.download='manual_reviews.json'; link.click(); URL.revokeObjectURL(link.href);
+}});
+</script></body></html>"""

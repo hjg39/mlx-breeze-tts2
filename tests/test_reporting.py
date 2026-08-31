@@ -39,3 +39,5 @@ def test_listening_html_has_audio_controls_and_escaped_content():
     assert "Hello &lt;world&gt;" in output
     assert "calm &amp; clear" in output
     assert "Manual listening" in output
+    assert "Export manual_reviews.json" in output
+    assert 'data-field="manual_event"' in output

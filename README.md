@@ -10,7 +10,7 @@ inference passed on an Apple M3 Max; a fresh standalone Metal run, official BF16
 conversion, 8-bit run, PyTorch parity, and manual event listening remain
 `pending`.
 
-The current automated handoff is `17 passed, 2 Metal-dependent modules skipped`;
+The current automated handoff is `29 passed, 2 Metal-dependent modules skipped`;
 wheel and source distributions build successfully with
 `uv build --no-build-isolation`.
 
@@ -119,6 +119,46 @@ mlx-breeze-tts2 verify-evidence reports/full_matrix \
 It exits non-zero until strict artifact audits, the complete capability/event
 matrix, CER/speaker/leakage thresholds, interfaces, reproducibility, WAVs,
 Markdown, and listening HTML are all present and passing.
+
+Run the complete 23-case matrix with separate exact English and Chinese
+reference pairs. It covers both languages for design/clone/direction,
+cross-language cloning, eight vocal events, non-streaming, streaming cancel and
+state reset, long text, steady state, every sampling control, and fixed-seed
+reproducibility. The CLI invocation also probes the real FastAPI contract:
+
+```bash
+mlx-breeze-tts2 benchmark \
+  --model models/breeze-4bit \
+  --ref-audio-en references/english.wav \
+  --ref-text-en "Exact English transcript." \
+  --ref-audio-zh references/chinese.wav \
+  --ref-text-zh "精确的中文转写。" \
+  --output reports/full_matrix/4bit
+```
+
+Missing reference pairs are retained as `missing_input` cases, never silently
+removed. Automated generation does not mark vocal events audible; reviewers
+must record those eight verdicts after listening to `index.html`. Use its
+**Export manual_reviews.json** button, then merge without overwriting the raw
+summary:
+
+```bash
+mlx-breeze-tts2 apply-listening-review \
+  reports/full_matrix/4bit/summary.json manual_reviews.json \
+  --output reports/full_matrix/4bit/summary.reviewed.json
+```
+
+`verify-evidence` automatically prefers `summary.reviewed.json` when present,
+while retaining the untouched generation summary as provenance.
+
+The pinned local English/Chinese reference paths, exact transcripts, observed
+audio properties, hashes, and usage boundary are recorded in
+`reports/full_matrix/input_manifest.json`.
+
+```bash
+mlx-breeze-tts2 validate-inputs reports/full_matrix/input_manifest.json \
+  --output reports/full_matrix/input_validation.json
+```
 
 ## HTTP compatibility
 

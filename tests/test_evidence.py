@@ -16,6 +16,20 @@ def test_empty_bundle_fails_all_variants(tmp_path):
     assert {item["variant"] for item in report["issues"]} == set(REQUIRED_VARIANTS)
 
 
+def test_pending_numeric_fields_fail_closed_instead_of_crashing(tmp_path):
+    for variant in REQUIRED_VARIANTS:
+        _write_complete_variant(tmp_path, variant)
+        path = tmp_path / variant / "summary.json"
+        summary = json.loads(path.read_text())
+        summary["validation"]["max_cer"] = None
+        summary["validation"]["clone_cosine_min"] = "pending"
+        path.write_text(json.dumps(summary))
+    report = verify_evidence_bundle(tmp_path)
+    assert report["pass"] is False
+    assert any(item["gate"] == "content" for item in report["issues"])
+    assert any(item["gate"] == "speaker" for item in report["issues"])
+
+
 def _write_complete_variant(root: Path, variant: str):
     directory = root / variant
     directory.mkdir()
@@ -59,3 +73,14 @@ def test_complete_synthetic_bundle_satisfies_schema(tmp_path):
     report = verify_evidence_bundle(tmp_path)
     assert report["pass"]
     assert report["issues"] == []
+
+
+def test_reviewed_summary_takes_precedence_over_raw_generation(tmp_path):
+    for variant in REQUIRED_VARIANTS:
+        _write_complete_variant(tmp_path, variant)
+    reviewed = json.loads((tmp_path / "4bit/summary.json").read_text())
+    reviewed["samples"][0]["samples"] = 0
+    (tmp_path / "4bit/summary.reviewed.json").write_text(json.dumps(reviewed))
+    report = verify_evidence_bundle(tmp_path)
+    assert report["pass"] is False
+    assert any("summary.reviewed.json" in item for item in report["checked"])

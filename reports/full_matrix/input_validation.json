@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "manifest": "/Users/vanch/mlx-breeze-tts2/reports/full_matrix/input_manifest.json",
+  "checked": [
+    "/Users/vanch/tts-test-project/data/reference_audio/dots_seedtts_en_ref.wav",
+    "/Users/vanch/tts-test-project/data/reference_audio/dots_seedtts_zh_ref.wav"
+  ],
+  "issues": [],
+  "pass": true
+}

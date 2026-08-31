@@ -36,12 +36,20 @@ def _issue(issues: list[dict], variant: str, gate: str, detail: str) -> None:
     issues.append({"variant": variant, "gate": gate, "detail": detail})
 
 
+def _number(value, default: float) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
 def verify_evidence_bundle(root: str | Path) -> dict:
     root = Path(root).expanduser()
     issues: list[dict] = []
     checked = []
     for variant in REQUIRED_VARIANTS:
-        path = root / variant / "summary.json"
+        reviewed = root / variant / "summary.reviewed.json"
+        path = reviewed if reviewed.is_file() else root / variant / "summary.json"
         if not path.is_file():
             _issue(issues, variant, "summary", f"missing {path}")
             continue
@@ -86,9 +94,9 @@ def verify_evidence_bundle(root: str | Path) -> dict:
             )
 
         for capability, item in samples.items():
-            if item.get("empty_audio") is True or item.get("samples", 0) <= 0:
+            if item.get("empty_audio") is True or _number(item.get("samples"), 0) <= 0:
                 _issue(issues, variant, capability, "empty audio")
-            if float(item.get("clipping_fraction", 1.0)) > 0:
+            if _number(item.get("clipping_fraction"), 1.0) > 0:
                 _issue(issues, variant, capability, "clipping detected")
             if capability in REQUIRED_EVENTS and item.get("manual_event") != "audible":
                 _issue(
@@ -96,13 +104,13 @@ def verify_evidence_bundle(root: str | Path) -> dict:
                 )
 
         validation = report.get("validation", {})
-        if float(validation.get("max_cer", 1.0)) > 0.05:
+        if _number(validation.get("max_cer"), 1.0) > 0.05:
             _issue(issues, variant, "content", "max CER exceeds 0.05 or is missing")
-        if float(validation.get("clone_cosine_min", -1.0)) < 0.25:
+        if _number(validation.get("clone_cosine_min"), -1.0) < 0.25:
             _issue(issues, variant, "speaker", "clone cosine minimum below 0.25")
-        if float(validation.get("clone_p10_min", -1.0)) < 0.25:
+        if _number(validation.get("clone_p10_min"), -1.0) < 0.25:
             _issue(issues, variant, "speaker", "clone P10 below 0.25")
-        if float(validation.get("leakage_max", 1.0)) >= 0.65:
+        if _number(validation.get("leakage_max"), 1.0) >= 0.65:
             _issue(issues, variant, "leakage", "leakage is >= 0.65 or missing")
         if validation.get("seed_reproducibility") != "pass":
             _issue(issues, variant, "seed", "fixed-seed reproducibility not pass")

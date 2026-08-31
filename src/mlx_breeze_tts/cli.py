@@ -52,11 +52,25 @@ def _parser() -> argparse.ArgumentParser:
     benchmark.add_argument("--output", type=Path, required=True)
     benchmark.add_argument("--ref-audio")
     benchmark.add_argument("--ref-text")
+    benchmark.add_argument("--ref-audio-en")
+    benchmark.add_argument("--ref-text-en")
+    benchmark.add_argument("--ref-audio-zh")
+    benchmark.add_argument("--ref-text-zh")
     benchmark.add_argument("--seed", type=int, default=42)
+    benchmark.add_argument("--skip-http-probe", action="store_true")
 
     verify = sub.add_parser("verify-evidence")
     verify.add_argument("root", type=Path)
     verify.add_argument("--output", type=Path)
+
+    reviews = sub.add_parser("apply-listening-review")
+    reviews.add_argument("summary", type=Path)
+    reviews.add_argument("reviews", type=Path)
+    reviews.add_argument("--output", type=Path, required=True)
+
+    inputs = sub.add_parser("validate-inputs")
+    inputs.add_argument("manifest", type=Path)
+    inputs.add_argument("--output", type=Path)
 
     serve = sub.add_parser("serve")
     serve.add_argument("--model", default=DEFAULT_MODEL)
@@ -117,7 +131,13 @@ def main(argv=None) -> int:
             args.output,
             ref_audio=args.ref_audio,
             ref_text=args.ref_text,
+            ref_audio_en=args.ref_audio_en,
+            ref_text_en=args.ref_text_en,
+            ref_audio_zh=args.ref_audio_zh,
+            ref_text_zh=args.ref_text_zh,
             seed=args.seed,
+            invoked_via_cli=True,
+            probe_http=not args.skip_http_probe,
         )
         print(report)
         return 0
@@ -125,6 +145,22 @@ def main(argv=None) -> int:
         from .evidence import verify_evidence_bundle
 
         report = verify_evidence_bundle(args.root)
+        rendered = json.dumps(report, indent=2)
+        if args.output:
+            args.output.parent.mkdir(parents=True, exist_ok=True)
+            args.output.write_text(rendered)
+        print(rendered)
+        return 0 if report["pass"] else 1
+    if args.command == "apply-listening-review":
+        from .reviews import apply_reviews
+
+        output = apply_reviews(args.summary, args.reviews, args.output)
+        print(output)
+        return 0
+    if args.command == "validate-inputs":
+        from .inputs import validate_input_manifest
+
+        report = validate_input_manifest(args.manifest)
         rendered = json.dumps(report, indent=2)
         if args.output:
             args.output.parent.mkdir(parents=True, exist_ok=True)
