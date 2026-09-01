@@ -2,7 +2,7 @@
 
 - Created: `2026-08-31T16:19:21.844685+00:00`
 - Model path: `models/breeze-bf16`
-- Overall status: `audio_generated_evaluation_pending`
+- Overall status: `release_pass`
 
 | Capability | Duration | Elapsed | RTF | CER | Cosine | Leakage | Clipping | Repeat tail | Stream break | Status |
 |---|---:|---:|---:|---:|---:|---:|---:|---|---|---|
@@ -48,6 +48,6 @@
 - Maximum reference leakage: `0.1695`
 - Waveform integrity: `pass`
 - PyTorch parity: `pass`
-- Manual listening: `pending`
+- Manual event listening: `pass`
 
 ASR, speaker similarity, leakage, and manual listening are explicitly `pending` unless their report fields contain measured evidence.

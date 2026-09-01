@@ -4,13 +4,13 @@ Standalone Apple Silicon port of Breeze TTS 2. The production package vendors
 the required MLX transformer and Qwen3 speech-codec primitives and does **not**
 depend on `mlx-audio` at runtime.
 
-Status: the isolated source, generation API, CLI, conversion/audit surface, and
-upstream-compatible HTTP endpoint are implemented. Official BF16 plus policy-v2
+Status: the approved standalone port is complete. Official BF16 plus policy-v2
 8-bit/4-bit artifacts passed the real M3 Max generation, objective-quality,
-waveform, interface, performance, and precision-specific PyTorch parity gates.
-Manual event listening remains `pending`.
+waveform, interface, performance, precision-specific PyTorch parity, and human
+event-listening gates. The independent final verifier reports zero issues in
+`reports/release-v2/completion_audit.json`.
 
-The current automated handoff is `131 passed` on the project machine;
+The current automated handoff is `132 passed` on the project machine;
 wheel and source distributions build successfully with
 `uv build --no-build-isolation`.
 

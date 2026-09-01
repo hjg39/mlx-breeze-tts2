@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "candidates": [
+    {
+      "summary": "/Users/vanch/mlx-breeze-tts2/reports/ablation/4bit-full/summary.candidate.json",
+      "sha256": "1f444ace7b0b57e1db9a007a74270c0f883ae98d2f711643452ea08bf5bcf2fb",
+      "policy": "full",
+      "bits": 4,
+      "model_revision": "c1c8ca18b70b30822735633991d9ebf4898e47d4",
+      "artifact_bytes": 2423059894,
+      "steady_state_rtf": 1.2072288078498543,
+      "status": "fail",
+      "failures": [
+        "pytorch_parity failed"
+      ],
+      "pending": [
+        "event_zh_sigh listening evidence is missing",
+        "event_en_sigh listening evidence is missing",
+        "event_en_laugh listening evidence is missing",
+        "event_zh_laugh listening evidence is missing",
+        "event_zh_cough listening evidence is missing",
+        "event_en_clears_throat listening evidence is missing",
+        "event_zh_clears_throat listening evidence is missing",
+        "event_en_cough listening evidence is missing"
+      ],
+      "issues": [
+        "pytorch_parity failed",
+        "event_zh_sigh listening evidence is missing",
+        "event_en_sigh listening evidence is missing",
+        "event_en_laugh listening evidence is missing",
+        "event_zh_laugh listening evidence is missing",
+        "event_zh_cough listening evidence is missing",
+        "event_en_clears_throat listening evidence is missing",
+        "event_zh_clears_throat listening evidence is missing",
+        "event_en_cough listening evidence is missing"
+      ],
+      "pass": false
+    },
+    {
+      "summary": "/Users/vanch/mlx-breeze-tts2/reports/release-v2/4bit/summary.reviewed.json",
+      "sha256": "645d3a4ce71d16bfbe9eb070bf24c453e9381401d28079c45ccacf79283d063f",
+      "policy": "sensitive-bf16",
+      "bits": 4,
+      "model_revision": "c1c8ca18b70b30822735633991d9ebf4898e47d4",
+      "artifact_bytes": 4882818534,
+      "steady_state_rtf": 2.509218965929549,
+      "status": "pass",
+      "failures": [],
+      "pending": [],
+      "issues": [],
+      "pass": true
+    }
+  ],
+  "selected_policy": "sensitive-bf16",
+  "selected_summary": "/Users/vanch/mlx-breeze-tts2/reports/release-v2/4bit/summary.reviewed.json",
+  "selected_summary_sha256": "645d3a4ce71d16bfbe9eb070bf24c453e9381401d28079c45ccacf79283d063f",
+  "bits": 4,
+  "model_revision": "c1c8ca18b70b30822735633991d9ebf4898e47d4",
+  "selection_rule": "quality gates, then artifact bytes, steady-state RTF, sensitive tie-break",
+  "issues": [],
+  "pass": true
+}

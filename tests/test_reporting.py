@@ -73,3 +73,21 @@ def test_report_bundle_writes_markdown_and_listening_pages(tmp_path):
     assert "event_en_laugh" in event_page
     assert "voice_design_en" not in event_page
     assert 'link.download="manual_reviews-' in event_page
+
+
+def test_final_report_reflects_saved_event_verdict_and_release_status():
+    report = _report()
+    report["samples"][1]["manual_event"] = "audible"
+    report["validation"] = {
+        "objective_metrics": "complete",
+        "pytorch_parity": "pass",
+    }
+    report["interfaces"] = {"http": "pass"}
+    report["model_provenance"] = {"bits": None}
+
+    markdown = benchmark_markdown(report)
+    rendered = listening_html(report, event_only=True)
+    assert "Overall status: `release_pass`" in markdown
+    assert "Manual event listening: `pass`" in markdown
+    assert '<option selected>audible</option>' in rendered
+    assert "release_pass" in rendered

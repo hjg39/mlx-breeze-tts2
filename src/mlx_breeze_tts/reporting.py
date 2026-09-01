@@ -21,13 +21,50 @@ def _flag(value) -> str:
     return "pending"
 
 
+def _manual_event_status(report: dict) -> str:
+    events = [
+        item
+        for item in report.get("samples", [])
+        if str(item.get("capability", "")).startswith("event_")
+    ]
+    if events and all(item.get("manual_event") == "audible" for item in events):
+        return "pass"
+    if any(item.get("manual_event") == "missing" for item in events):
+        return "fail"
+    return "pending"
+
+
+def _display_status(report: dict) -> str:
+    validation = report.get("validation", {})
+    provenance = report.get("model_provenance") or {}
+    quantization_ready = provenance.get("bits") is None or validation.get(
+        "quantization_ablation"
+    ) == "pass"
+    if (
+        _manual_event_status(report) == "pass"
+        and validation.get("objective_metrics") == "complete"
+        and validation.get("pytorch_parity") == "pass"
+        and report.get("interfaces", {}).get("http") == "pass"
+        and quantization_ready
+    ):
+        return "release_pass"
+    return str(report.get("status", "pending"))
+
+
+def _options(values: tuple[str, ...], current: str) -> str:
+    return "".join(
+        f'<option{" selected" if value == current else ""}>{html.escape(value)}</option>'
+        for value in values
+    )
+
+
 def benchmark_markdown(report: dict) -> str:
     lines = [
         "# MLX Breeze TTS 2 benchmark",
         "",
         f"- Created: `{report['created_at']}`",
         f"- Model path: `{report['resolved_model_path']}`",
-        f"- Overall status: `{report['status']}`",
+        f"- Overall status: `{_display_status(report)}`",
         "",
         "| Capability | Duration | Elapsed | RTF | CER | Cosine | Leakage | Clipping | Repeat tail | Stream break | Status |",
         "|---|---:|---:|---:|---:|---:|---:|---:|---|---|---|",
@@ -64,7 +101,7 @@ def benchmark_markdown(report: dict) -> str:
             f"- Maximum reference leakage: `{_metric(validation.get('leakage_max'), 4)}`",
             f"- Waveform integrity: `{validation.get('waveform_integrity', 'pending')}`",
             f"- PyTorch parity: `{validation.get('pytorch_parity', 'pending')}`",
-            f"- Manual listening: `{validation.get('manual_listening', 'pending')}`",
+            f"- Manual event listening: `{_manual_event_status(report)}`",
             "",
             (
                 "ASR, speaker similarity, leakage, and manual listening are explicitly "
@@ -114,15 +151,15 @@ def listening_html(
     <dt>Reference leakage</dt><dd>{_metric(item.get("reference_leakage"), 4)}</dd>
   </dl>
   <fieldset><legend>Manual listening</legend>
-    <label>Content <select data-field="manual_content"><option>pending</option><option>pass</option><option>fail</option></select></label>
-    <label>Voice <select data-field="manual_voice"><option>pending</option><option>pass</option><option>fail</option><option>n/a</option></select></label>
-    <label>Event <select data-field="manual_event"><option>pending</option><option>audible</option><option>missing</option><option>n/a</option></select></label>
-    <label>Notes <textarea data-field="manual_notes" rows="2"></textarea></label>
+    <label>Content <select data-field="manual_content">{_options(("pending", "pass", "fail"), str(item.get("manual_content", "pending")))}</select></label>
+    <label>Voice <select data-field="manual_voice">{_options(("pending", "pass", "fail", "n/a"), str(item.get("manual_voice", "pending")))}</select></label>
+    <label>Event <select data-field="manual_event">{_options(("pending", "audible", "missing", "n/a"), str(item.get("manual_event", "pending")))}</select></label>
+    <label>Notes <textarea data-field="manual_notes" rows="2">{html.escape(str(item.get("manual_notes", "")))}</textarea></label>
   </fieldset>
 </article>"""
         )
     page_kind = "required event review" if event_only else "listening review"
-    title = html.escape(f"MLX Breeze TTS 2 {page_kind} — {report['status']}")
+    title = html.escape(f"MLX Breeze TTS 2 {page_kind} — {_display_status(report)}")
     export_metadata = json.dumps(
         {
             "model_revision": report.get("model_revision"),

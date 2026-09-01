@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "root": "reports/release-v2",
+  "required_variants": [
+    "bf16",
+    "8bit",
+    "4bit"
+  ],
+  "checked": [
+    "reports/release-v2/bf16/summary.final.json",
+    "reports/release-v2/8bit/summary.final.json",
+    "reports/release-v2/4bit/summary.final.json"
+  ],
+  "issue_count": 0,
+  "issues": [],
+  "pass": true
+}

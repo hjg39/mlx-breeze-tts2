@@ -17,8 +17,8 @@ and `THIRD_PARTY_NOTICES.md`.
 
 | Artifact | Pinned revision | License | Status |
 |---|---|---|---|
-| `BreezeBlue/Breeze-TTS-2` | `c1c8ca18b70b30822735633991d9ebf4898e47d4` | BreezeBlue Research and Non-Commercial | source identified; standalone BF16 conversion pending |
-| `LunaFox/Breeze-TTS-2-mlx-4bit` | `27be05f01bd8aad9628022c2bac6ded0119eef8a` | derivative subject to upstream model terms | baseline real-device pass; standalone rerun pending |
+| `BreezeBlue/Breeze-TTS-2` | `c1c8ca18b70b30822735633991d9ebf4898e47d4` | BreezeBlue Research and Non-Commercial | official BF16 plus selected sensitive-BF16 8-bit/4-bit derivatives pass the standalone release verifier |
+| `LunaFox/Breeze-TTS-2-mlx-4bit` | `27be05f01bd8aad9628022c2bac6ded0119eef8a` | derivative subject to upstream model terms | precursor baseline only; not the selected release artifact |
 
 ## Verification status
 
@@ -33,32 +33,30 @@ and `THIRD_PARTY_NOTICES.md`.
 | 4-bit voice design / clone / direction / ZH event / streaming on M3 Max | pass on precursor implementation | `reports/baseline/summary.json` and WAVs |
 | ASR content fidelity in five baseline cases | pass | Whisper large-v3-turbo, zero failures |
 | Clone speaker similarity | pass | ECAPA cosine `0.775864`, threshold `0.25` |
-| Standalone automated tests | pass | 131 passed, 0 failed on the project machine |
+| Standalone automated tests | pass | 132 passed, 0 failed on the project machine |
 | Approved acceptance-matrix coverage | pass | 23 deterministic cases; complete required capability/event set; fake-runtime report and real FastAPI contract tests |
-| Manual listening evidence workflow | pass; verdicts pending | focused `events.html` exports precision-labelled, revision/timestamp-bound JSON; merge stores source path/SHA-256 and verifier requires eight matching audible verdicts per artifact |
+| Manual listening evidence workflow | pass | user confirmed all three variants; three revision/timestamp-bound documents and their SHA-256 hashes are stored under `reports/release-v2/*/manual_reviews.json`; all 24 event verdicts are audible |
 | EN/ZH evaluation references | pass for local internal evaluation | `reports/full_matrix/input_manifest.json` and `input_validation.json`; files exist, mono 24 kHz PCM16, exact registry transcripts and SHA-256 verified |
 | Objective metric integration | pass | validated ASR/ECAPA worksheet merge; event-aware CER, skill-compatible leakage similarity, min cosine/P10 aggregation, missing values fail closed |
 | Automated objective backend | pass on precursor evidence | `evaluate-objective-metrics` records Whisper snapshot/artifact hashes and actual ECAPA device; `reports/baseline/objective_backend_check.json` reproduces cosine/P10 `0.775864`/`0.774540` with the standalone worker |
 | Waveform/performance completion gates | pass | benchmark records load/RTF/TTFA/memory plus non-finite, clipping, repeated-tail, and stream-boundary diagnostics; verifier fails closed on missing evidence |
 | PyTorch parity evidence workflow | pass | clean official source checkout and environment manifest; paired BF16/8-bit/4-bit captures under `reports/parity/`; exact template/token/codec/mask/shape/argmax checks plus recorded precision-specific tensor tolerances |
 | Revision propagation and report identity | pass | HF snapshot revisions are resolved from paths; BF16→8/4-bit conversions inherit the original upstream identity; completion verifier rejects mutable/missing revisions |
-| Explicit quantization policy and static consistency | pass; listening-dependent selection pending | sensitive-BF16 v2 preserves the complete text encoder and depth decoder; full 8-bit/4-bit candidates have hash-bound terminal parity failures, while missing evidence can no longer eliminate a candidate |
+| Explicit quantization policy and static consistency | pass | sensitive-BF16 v2 selected for both 8-bit and 4-bit; full candidates have hash-bound terminal parity failures and the selected candidates pass all gates |
 | Low-disk auxiliary artifact storage | pass | quantized candidates hard-link immutable codec/tokenizer assets on the same volume, fall back to copies across volumes, and regenerate mutable config/audits |
-| Quantization ablation selection workflow | pass; real comparison pending | applies complete quality/interface/event/waveform/parity/performance gates, deterministic size/RTF selection, input hashes, non-destructive merge, and independent verifier checks |
+| Quantization ablation selection workflow | pass | `reports/release-v2/{8bit,4bit}/quantization-comparison.json` selects sensitive-BF16 after complete pass/fail/pending-aware comparison |
 | Objective metric baseline cross-check | pass on precursor evidence | `reports/baseline/objective_recalculation.json`; max CER 0.0, leakage 0.2194, ECAPA cosine/P10 0.7759/0.7745 |
 | 4-bit safetensors/index static preflight | pass | `reports/baseline/checkpoint_static_audit.json`; 1,234 tensors, no index inconsistency |
-| Standalone MLX architecture/model tests | pass | Metal-capable local run included in the 123-test suite and full real-device matrix |
+| Standalone MLX architecture/model tests | pass | Metal-capable local run included in the 132-test suite and full real-device matrix |
 | Standalone 4-bit real-device run | pass | `reports/release-v2/4bit/` |
 | Official BF16 conversion and inference | pass | pinned download plus `reports/release-v2/bf16/` |
 | 8-bit conversion and inference | pass | sensitive-BF16 policy v2 plus `reports/release-v2/8bit/` |
 | PyTorch parity | pass | `reports/parity/comparison-*-v2-*.json` and BF16 2% report |
-| Manual event audibility | pending | listening review required |
+| Manual event audibility | pass | eight English/Chinese event verdicts per artifact, 24/24 audible, hash-bound in final summaries |
 
-Do not promote any pending row to pass without adding the machine-readable
-artifact and exact command/revision used.
+## Final release verification
 
-## Current execution blocker
-
-- Manual event audibility cannot be inferred from ASR. A human reviewer must
-  listen to the eight event WAVs in each `reports/release-v2/*/events.html` and
-  export/merge the verdicts before the completion claim and policy selection.
+`reports/release-v2/completion_audit.json` checks the immutable final BF16,
+8-bit, and 4-bit summaries and reports `issue_count: 0`, `pass: true`. The
+review documents preserve the user's explicit human verdict; no event result
+was inferred from ASR or waveform metrics.
