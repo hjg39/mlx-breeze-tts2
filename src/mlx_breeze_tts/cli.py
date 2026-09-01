@@ -2,6 +2,7 @@
 
 import argparse
 import json
+import time
 from pathlib import Path
 
 DEFAULT_MODEL = "LunaFox/Breeze-TTS-2-mlx-4bit"
@@ -345,12 +346,14 @@ def main(argv=None) -> int:
         return 0
 
     import mlx.core as mx
+    import soundfile as sf
 
     from .audio import write_audio, write_audio_chunks
     from .loader import load
 
     model_id = args.model_option or args.model_pos or DEFAULT_MODEL
     model = load(model_id)
+    t0 = time.perf_counter()
     generator = model.generate(
         text=args.text,
         voice=args.voice,
@@ -373,6 +376,14 @@ def main(argv=None) -> int:
         chunks = list(generator)
         audio = mx.concatenate([chunk.audio for chunk in chunks])
         write_audio(args.output, audio, model.sample_rate)
+    elapsed = time.perf_counter() - t0
+    try:
+        info = sf.info(args.output)
+        dur = info.duration
+        rtf = elapsed / dur if dur > 0 else 0.0
+        print(json.dumps({"task": "tts", "elapsed_s": round(elapsed, 4), "duration_s": round(dur, 4), "real_time_factor": round(rtf, 4)}))
+    except Exception:
+        pass
     print(args.output)
     return 0
 
