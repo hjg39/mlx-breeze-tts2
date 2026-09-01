@@ -37,12 +37,22 @@ python -m venv .venv
 pip install -e '.[dev,server]'
 ```
 
-The default model is the locally tested unofficial 4-bit conversion
-`LunaFox/Breeze-TTS-2-mlx-4bit`. Pin a revision for reproducibility:
+The recommended model is the verified 4-bit release
+[`vanch007/Sirocco-MLX-4bit`](https://huggingface.co/vanch007/Sirocco-MLX-4bit).
+The model repositories are gated: request access and accept the upstream
+research/non-commercial terms before downloading.
+
+| Precision | Hugging Face repository | Verified revision |
+|---|---|---|
+| BF16 | [`vanch007/Sirocco-MLX-BF16`](https://huggingface.co/vanch007/Sirocco-MLX-BF16) | `4c7eec64281272a32376234075e955dce50c9252` |
+| 8-bit sensitive-BF16 | [`vanch007/Sirocco-MLX-8bit`](https://huggingface.co/vanch007/Sirocco-MLX-8bit) | `45c58f3a91ddee3c4ce90cd10ec86ddf97e933a0` |
+| 4-bit sensitive-BF16 | [`vanch007/Sirocco-MLX-4bit`](https://huggingface.co/vanch007/Sirocco-MLX-4bit) | `0c4f095035f82e06574c41cdd1212ebada404638` |
+
+Generate with the current 4-bit release from the command line:
 
 ```bash
 mlx-breeze-tts2 generate \
-  --model LunaFox/Breeze-TTS-2-mlx-4bit \
+  --model vanch007/Sirocco-MLX-4bit \
   --text "Welcome aboard. Your journey begins now." \
   --instruction "A warm, thoughtful young woman with a clear voice." \
   --cfg-scale 4 \
@@ -62,12 +72,15 @@ mlx-breeze-tts2 generate \
   --output outputs/directed.wav
 ```
 
-Python:
+The Python API can pin the verified revision for reproducibility:
 
 ```python
 from mlx_breeze_tts import load, write_audio
 
-model = load("LunaFox/Breeze-TTS-2-mlx-4bit")
+model = load(
+    "vanch007/Sirocco-MLX-4bit",
+    revision="0c4f095035f82e06574c41cdd1212ebada404638",
+)
 result = next(model.generate(
     text="[笑] 欢迎来到今晚的故事时间。",
     instruct="一位温柔自信的年轻女性，声音清晰。",

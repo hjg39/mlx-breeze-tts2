@@ -18,6 +18,9 @@ and `THIRD_PARTY_NOTICES.md`.
 | Artifact | Pinned revision | License | Status |
 |---|---|---|---|
 | `BreezeBlue/Breeze-TTS-2` | `c1c8ca18b70b30822735633991d9ebf4898e47d4` | BreezeBlue Research and Non-Commercial | official BF16 plus selected sensitive-BF16 8-bit/4-bit derivatives pass the standalone release verifier |
+| `vanch007/Sirocco-MLX-BF16` | `4c7eec64281272a32376234075e955dce50c9252` | gated BreezeBlue Research and Non-Commercial | published verified BF16 artifact |
+| `vanch007/Sirocco-MLX-8bit` | `45c58f3a91ddee3c4ce90cd10ec86ddf97e933a0` | gated BreezeBlue Research and Non-Commercial | published selected sensitive-BF16 8-bit artifact |
+| `vanch007/Sirocco-MLX-4bit` | `0c4f095035f82e06574c41cdd1212ebada404638` | gated BreezeBlue Research and Non-Commercial | published selected sensitive-BF16 4-bit artifact |
 | `LunaFox/Breeze-TTS-2-mlx-4bit` | `27be05f01bd8aad9628022c2bac6ded0119eef8a` | derivative subject to upstream model terms | precursor baseline only; not the selected release artifact |
 
 ## Verification status
