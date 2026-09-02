@@ -7,7 +7,6 @@ import argparse
 import hashlib
 import importlib.metadata
 import json
-import math
 import platform
 import statistics
 import subprocess
@@ -21,6 +20,11 @@ import numpy as np
 from mlx_breeze_tts import load, write_audio
 from mlx_breeze_tts.loader import resolve_model_path
 from mlx_breeze_tts.provenance import checkpoint_provenance
+from mlx_breeze_tts.speed_reporting import (
+    finalize_stage_profile,
+    percentile,
+    render_speed_markdown,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -41,12 +45,6 @@ CASES = (
         "target_rtf": 4.0,
     },
 )
-
-
-def _percentile(values: list[float], fraction: float) -> float:
-    ordered = sorted(values)
-    index = max(0, math.ceil(fraction * len(ordered)) - 1)
-    return ordered[index]
 
 
 def _generate(
@@ -92,22 +90,6 @@ def _generate(
     return audio, measurement
 
 
-def _finalize_stage_profile(profile: dict, measurement: dict) -> dict:
-    stages = profile.get("stages", {})
-    stage_total = sum(stage["seconds"] for stage in stages.values())
-    for stage in stages.values():
-        stage["percent"] = (
-            100.0 * stage["seconds"] / stage_total if stage_total > 0 else 0.0
-        )
-    profile["stage_total_s"] = stage_total
-    profile["wall_s"] = measurement["elapsed_s"]
-    profile["unattributed_s"] = max(0.0, measurement["elapsed_s"] - stage_total)
-    profile["output_materialization_s"] = measurement["output_materialization_s"]
-    profile["peak_memory_gb"] = measurement["peak_memory_gb"]
-    profile["excluded_from_speed_acceptance"] = True
-    return profile
-
-
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", required=True)
@@ -151,7 +133,7 @@ def main() -> int:
                 fast_depth=fast_depth,
                 stage_profile=stage_profile,
             )
-            stage_profile = _finalize_stage_profile(stage_profile, profiled_run)
+            stage_profile = finalize_stage_profile(stage_profile, profiled_run)
             output_wav = args.output / f"{mode}_{case['name']}.wav"
             wav_write_started = time.perf_counter()
             write_audio(output_wav, final_audio, model.sample_rate)
@@ -166,7 +148,7 @@ def main() -> int:
                     "cold_run": cold_run,
                     "measured_runs": args.runs,
                     "median_rtf": median_rtf,
-                    "p90_rtf": _percentile(rtfs, 0.9),
+                    "p90_rtf": percentile(rtfs, 0.9),
                     "best_rtf": min(rtfs),
                     "exact_reproducible": len({run["sha256"] for run in runs}) == 1,
                     "speed_target_pass": (
@@ -227,6 +209,14 @@ def main() -> int:
             "fixed_seed_reproducibility": reproducibility_pass,
             "fast_eager_exact_match": exact_match_pass,
         },
+        "release_acceptance": "pending",
+        "pending_release_gates": [
+            "23-case fast-path capability matrix",
+            "objective ASR, speaker similarity, and leakage metrics",
+            "precision-specific PyTorch parity",
+            "waveform, streaming, HTTP, event, and cancellation regression gates",
+            "manual listening review",
+        ],
         "pass": (
             speed_pass is not False
             and reproducibility_pass
@@ -235,7 +225,10 @@ def main() -> int:
     }
     output_json = args.output / "speed.json"
     output_json.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n")
+    output_markdown = args.output / "report.md"
+    output_markdown.write_text(render_speed_markdown(report))
     print(output_json)
+    print(output_markdown)
     print(json.dumps(report, ensure_ascii=False, indent=2))
     return 0 if report["pass"] else 1
 
