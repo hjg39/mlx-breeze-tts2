@@ -47,6 +47,27 @@ def _record_profile_stage(
     stage["calls"] += 1
 
 
+class _CompiledDepthKVCache:
+    """Exact-size cache optimized for one compiled 16-position depth frame."""
+
+    def __init__(self):
+        self.keys = None
+        self.values = None
+        self.offset = 0
+
+    def update_and_fetch(
+        self, keys: mx.array, values: mx.array
+    ) -> tuple[mx.array, mx.array]:
+        if self.keys is None:
+            self.keys = keys
+            self.values = values
+        else:
+            self.keys = mx.concatenate([self.keys, keys], axis=2)
+            self.values = mx.concatenate([self.values, values], axis=2)
+        self.offset += keys.shape[2]
+        return self.keys, self.values
+
+
 def _reset_streaming_on_abort(method):
     """Reset decoder state when a streaming generator is closed or errors."""
     method_signature = signature(method)
@@ -1133,7 +1154,10 @@ class Model(nn.Module):
         else:
             depth_first = first
 
-        cache = self.depth_decoder.model.make_cache()
+        # This whole frame is one static graph, so exact-size concatenation is
+        # cheaper than repeatedly scattering into a padded general-purpose KV
+        # cache. The graph compiler removes the small intermediate containers.
+        cache = [_CompiledDepthKVCache() for _ in self.depth_decoder.model.layers]
         depth_hidden = self.depth_decoder.model.prefill(depth_first, hidden, cache)
         tokens = [first]
         heads = self.depth_decoder.codebooks_head.weight
