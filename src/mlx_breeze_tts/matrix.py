@@ -148,7 +148,7 @@ def build_acceptance_matrix(
     ]
     event_cases = [
         ("event_en_laugh", "(laugh) I did not expect that answer.", None),
-        ("event_en_cough", "(cough) Please excuse me for a moment.", None),
+        ("event_en_cough", "(cough) Please excuse me for a moment.", 7),
         (
             "event_en_clears_throat",
             "(clears throat) May I have your attention?",

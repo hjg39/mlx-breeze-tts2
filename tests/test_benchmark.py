@@ -105,12 +105,19 @@ def test_full_benchmark_emits_complete_fail_closed_bundle(tmp_path, monkeypatch)
         if call["text"] == "(sigh) We have a long way to go."
     )
     assert sigh_call["seed"] == 3
+    cough_call = next(
+        call
+        for call in model.generate_calls
+        if call["text"] == "(cough) Please excuse me for a moment."
+    )
+    assert cough_call["seed"] == 7
     assert all(
         call["seed"] == 42
         for call in model.generate_calls
         if call["text"]
         not in {
             "[清嗓子] 请大家注意。",
+            "(cough) Please excuse me for a moment.",
             "(sigh) We have a long way to go.",
         }
     )
