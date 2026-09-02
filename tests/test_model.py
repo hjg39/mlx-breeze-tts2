@@ -152,9 +152,11 @@ def test_default_generic_voice_maps_to_breeze_s0():
 def test_depth_cfg_applies_to_every_remaining_codebook(monkeypatch):
     model = Model(tiny_config())
     sampled_logits = []
+    depth_batches = []
 
     def next_logits(_token_ids, hidden):
-        return mx.full((1, 8), hidden[0, 0])
+        depth_batches.append(hidden.shape[0])
+        return mx.broadcast_to(hidden[:, :1], (hidden.shape[0], 8))
 
     def sample(logits, **_kwargs):
         sampled_logits.append(logits)
@@ -174,6 +176,7 @@ def test_depth_cfg_applies_to_every_remaining_codebook(monkeypatch):
 
     assert tokens == [1, 1, 1]
     assert len(sampled_logits) == 2
+    assert depth_batches == [2, 2]
     assert all(float(logits[0, 0].item()) == 3.0 for logits in sampled_logits)
 
 
@@ -181,8 +184,10 @@ def test_depth_cfg_masks_reserved_tokens_at_every_step(monkeypatch):
     model = Model(tiny_config())
     sampled_logits = []
 
-    def next_logits(_token_ids, _hidden):
-        return mx.arange(8, dtype=mx.float32)[None, :]
+    def next_logits(token_ids, _hidden):
+        return mx.broadcast_to(
+            mx.arange(8, dtype=mx.float32)[None, :], (token_ids.shape[0], 8)
+        )
 
     def sample(logits, **_kwargs):
         sampled_logits.append(logits)
@@ -235,8 +240,8 @@ def test_depth_array_keeps_sampled_tokens_on_device(monkeypatch):
     )
 
     assert isinstance(tokens, mx.array)
-    assert tokens.tolist() == [1, 1, 2, 3]
-    assert sample_calls == 3
+    assert tokens.tolist() == [1, 1, 2]
+    assert sample_calls == 2
 
 
 @pytest.mark.parametrize("use_cfg", [False, True])
@@ -257,7 +262,7 @@ def test_cached_depth_matches_full_depth_for_deterministic_sampling(use_cfg):
     full = model._depth_token_array(1, conditional, **kwargs)
     cached = model._cached_depth_token_array(1, conditional, **kwargs)
 
-    assert cached.shape == full.shape == (4,)
+    assert cached.shape == full.shape == (3,)
     assert cached.tolist() == full.tolist()
 
 

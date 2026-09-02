@@ -679,6 +679,9 @@ class Model(nn.Module):
             config.backbone_hidden_size,
             bias=False,
         )
+        # Build this lazily after checkpoint loading so mx.compile captures the
+        # loaded depth weights rather than the constructor's placeholder state.
+        self._compiled_depth_frame = None
         self.tokenizer = None
         self.audio_tokenizer = None
 
@@ -1039,14 +1042,27 @@ class Model(nn.Module):
     ) -> mx.array:
         """Generate dependent codebooks without synchronizing each token to CPU."""
         token_ids = mx.array([[0, first_codebook]], dtype=mx.int32)
+        combined_hidden = None
+        conditional_batch = conditional_hidden.shape[0]
+        if unconditional_hidden is not None:
+            combined_hidden = mx.concatenate(
+                [conditional_hidden, unconditional_hidden], axis=0
+            )
         for _ in range(self.num_codebooks - 1):
-            logits = self.depth_decoder.next_logits(token_ids, conditional_hidden)
-            if unconditional_hidden is not None:
-                unconditional_logits = self.depth_decoder.next_logits(
-                    token_ids, unconditional_hidden
+            if combined_hidden is None:
+                logits = self.depth_decoder.next_logits(token_ids, conditional_hidden)
+            else:
+                combined_token_ids = mx.broadcast_to(
+                    token_ids,
+                    (combined_hidden.shape[0], token_ids.shape[1]),
                 )
+                combined_logits = self.depth_decoder.next_logits(
+                    combined_token_ids, combined_hidden
+                )
+                conditional_logits = combined_logits[:conditional_batch]
+                unconditional_logits = combined_logits[conditional_batch:]
                 logits = unconditional_logits + cfg_scale * (
-                    logits - unconditional_logits
+                    conditional_logits - unconditional_logits
                 )
             # Apply the reserved-id mask before handing logits to the sampler.
             # Keeping it here (as well as in ``_sample``) means custom samplers
@@ -1058,6 +1074,10 @@ class Model(nn.Module):
                 top_p=top_p,
                 top_k=top_k,
             )
+            # Bound the lazy graph without synchronizing the host. This mirrors
+            # MLX's autoregressive generation loop and lets Metal overlap the
+            # next Python step with the current token evaluation.
+            mx.async_eval(token)
             token_ids = mx.concatenate(
                 [token_ids, mx.reshape(token, (token_ids.shape[0], 1))], axis=1
             )
@@ -1074,8 +1094,38 @@ class Model(nn.Module):
         top_p: float,
         top_k: int,
     ) -> mx.array:
-        """Generate one frame with an incremental depth-decoder KV cache."""
-        first = mx.array([first_codebook], dtype=mx.int32)
+        """Generate one frame as a compiled incremental depth-decoder graph."""
+        if self._compiled_depth_frame is None:
+            self._compiled_depth_frame = mx.compile(
+                self._cached_depth_frame_graph,
+                inputs=[self.depth_decoder.state, mx.random.state],
+                outputs=[mx.random.state],
+            )
+        tokens = self._compiled_depth_frame(
+            mx.array(first_codebook, dtype=mx.int32),
+            conditional_hidden,
+            unconditional_hidden,
+            cfg_scale,
+            temperature,
+            top_p,
+            top_k,
+        )
+        # Submit one complete frame while retaining asynchronous host control.
+        mx.async_eval(tokens)
+        return tokens
+
+    def _cached_depth_frame_graph(
+        self,
+        first_codebook: mx.array,
+        conditional_hidden: mx.array,
+        unconditional_hidden: Optional[mx.array],
+        cfg_scale: float,
+        temperature: float,
+        top_p: float,
+        top_k: int,
+    ) -> mx.array:
+        """Pure per-frame graph used by the lazily compiled fast path."""
+        first = mx.reshape(first_codebook, (1,))
         hidden = conditional_hidden
         if unconditional_hidden is not None:
             hidden = mx.concatenate([conditional_hidden, unconditional_hidden], axis=0)
@@ -1083,11 +1133,13 @@ class Model(nn.Module):
         else:
             depth_first = first
 
-        decoder = self.depth_decoder.cached_logits(depth_first, hidden)
-        logits = next(decoder)
+        cache = self.depth_decoder.model.make_cache()
+        depth_hidden = self.depth_decoder.model.prefill(depth_first, hidden, cache)
         tokens = [first]
-        head_count = self.num_codebooks - 1
+        heads = self.depth_decoder.codebooks_head.weight
+        head_count = heads.shape[0]
         for head_index in range(head_count):
+            logits = depth_hidden @ heads[head_index]
             if unconditional_hidden is not None:
                 conditional_logits = logits[:1]
                 unconditional_logits = logits[1:]
@@ -1104,7 +1156,9 @@ class Model(nn.Module):
             tokens.append(mx.reshape(token, (1,)))
             if head_index + 1 < head_count:
                 depth_token = mx.broadcast_to(token, (hidden.shape[0],))
-                logits = decoder.send(depth_token)
+                depth_hidden = self.depth_decoder.model.step(
+                    depth_token, head_index + 1, cache
+                )
         return mx.concatenate(tokens, axis=0)
 
     def _depth_tokens(
