@@ -534,14 +534,29 @@ def test_exact_stream_interval_marks_last_audible_chunk_final(monkeypatch):
         lambda first, *_args, **_kwargs: mx.array([first, 2, 3], dtype=mx.int32),
     )
 
+    stage_profile = {}
     chunks = list(
         model.generate(
-            "test", temperature=0, top_k=0, stream=True, streaming_interval=2.0
+            "test",
+            temperature=0,
+            top_k=0,
+            stream=True,
+            streaming_interval=2.0,
+            _stage_profile=stage_profile,
         )
     )
     assert len(chunks) == 1
     assert chunks[0].token_count == 2
     assert chunks[0].is_final_chunk is True
+    assert stage_profile["synchronizes_at_stage_boundaries"] is True
+    assert set(stage_profile["stages"]) == {
+        "backbone_prefill",
+        "backbone_head_and_sample",
+        "depth_decode",
+        "backbone_decode",
+        "waveform_codec_decode",
+    }
+    assert all(stage["calls"] > 0 for stage in stage_profile["stages"].values())
 
 
 def test_empty_early_eos_codec_output_is_an_error():

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Measure warmed 8-bit Breeze generation without including model load time."""
+"""Compare cold/warmed 8-bit generation and capture a separate stage profile."""
 
 from __future__ import annotations
 
@@ -19,6 +19,8 @@ import mlx.core as mx
 import numpy as np
 
 from mlx_breeze_tts import load, write_audio
+from mlx_breeze_tts.loader import resolve_model_path
+from mlx_breeze_tts.provenance import checkpoint_provenance
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -48,8 +50,16 @@ def _percentile(values: list[float], fraction: float) -> float:
 
 
 def _generate(
-    model, case: dict, seed: int, *, fast_depth: bool
-) -> tuple[mx.array, float, float]:
+    model,
+    case: dict,
+    seed: int,
+    *,
+    fast_depth: bool,
+    stage_profile: dict | None = None,
+) -> tuple[mx.array, dict]:
+    reset_peak_memory = getattr(mx, "reset_peak_memory", None)
+    if callable(reset_peak_memory):
+        reset_peak_memory()
     started = time.perf_counter()
     chunks = list(
         model.generate(
@@ -59,6 +69,7 @@ def _generate(
             max_tokens=1500,
             seed=seed,
             fast_depth=fast_depth,
+            _stage_profile=stage_profile,
         )
     )
     audio = mx.concatenate([chunk.audio for chunk in chunks])
@@ -67,7 +78,34 @@ def _generate(
     duration = int(audio.shape[0]) / model.sample_rate
     if duration <= 0:
         raise RuntimeError(f"{case['name']} generated empty audio")
-    return audio, elapsed, duration
+    materialize_started = time.perf_counter()
+    values = np.asarray(audio, dtype=np.float32)
+    materialize_seconds = time.perf_counter() - materialize_started
+    measurement = {
+        "elapsed_s": elapsed,
+        "duration_s": duration,
+        "rtf": elapsed / duration,
+        "peak_memory_gb": mx.get_peak_memory() / 1e9,
+        "output_materialization_s": materialize_seconds,
+        "sha256": hashlib.sha256(values.tobytes()).hexdigest(),
+    }
+    return audio, measurement
+
+
+def _finalize_stage_profile(profile: dict, measurement: dict) -> dict:
+    stages = profile.get("stages", {})
+    stage_total = sum(stage["seconds"] for stage in stages.values())
+    for stage in stages.values():
+        stage["percent"] = (
+            100.0 * stage["seconds"] / stage_total if stage_total > 0 else 0.0
+        )
+    profile["stage_total_s"] = stage_total
+    profile["wall_s"] = measurement["elapsed_s"]
+    profile["unattributed_s"] = max(0.0, measurement["elapsed_s"] - stage_total)
+    profile["output_materialization_s"] = measurement["output_materialization_s"]
+    profile["peak_memory_gb"] = measurement["peak_memory_gb"]
+    profile["excluded_from_speed_acceptance"] = True
+    return profile
 
 
 def main() -> int:
@@ -84,8 +122,10 @@ def main() -> int:
         parser.error("--runs must be positive")
 
     args.output.mkdir(parents=True, exist_ok=True)
+    resolved_model = resolve_model_path(args.model)
+    provenance = checkpoint_provenance(resolved_model)
     load_started = time.perf_counter()
-    model = load(args.model)
+    model = load(resolved_model)
     load_seconds = time.perf_counter() - load_started
     results = []
 
@@ -93,33 +133,37 @@ def main() -> int:
     for mode in modes:
         fast_depth = mode == "fast"
         for case in CASES:
-            _generate(model, case, args.seed, fast_depth=fast_depth)
+            _, cold_run = _generate(model, case, args.seed, fast_depth=fast_depth)
             runs = []
             final_audio = None
             for _ in range(args.runs):
-                audio, elapsed, duration = _generate(
+                audio, measurement = _generate(
                     model, case, args.seed, fast_depth=fast_depth
                 )
-                values = np.asarray(audio, dtype=np.float32)
-                runs.append(
-                    {
-                        "elapsed_s": elapsed,
-                        "duration_s": duration,
-                        "rtf": elapsed / duration,
-                        "sha256": hashlib.sha256(values.tobytes()).hexdigest(),
-                    }
-                )
+                runs.append(measurement)
                 final_audio = audio
 
+            stage_profile = {}
+            _, profiled_run = _generate(
+                model,
+                case,
+                args.seed,
+                fast_depth=fast_depth,
+                stage_profile=stage_profile,
+            )
+            stage_profile = _finalize_stage_profile(stage_profile, profiled_run)
             output_wav = args.output / f"{mode}_{case['name']}.wav"
+            wav_write_started = time.perf_counter()
             write_audio(output_wav, final_audio, model.sample_rate)
+            wav_write_seconds = time.perf_counter() - wav_write_started
             rtfs = [run["rtf"] for run in runs]
             median_rtf = statistics.median(rtfs)
             results.append(
                 {
                     **case,
                     "mode": mode,
-                    "warmup_runs": 1,
+                    "cold_runs": 1,
+                    "cold_run": cold_run,
                     "measured_runs": args.runs,
                     "median_rtf": median_rtf,
                     "p90_rtf": _percentile(rtfs, 0.9),
@@ -129,6 +173,8 @@ def main() -> int:
                         median_rtf <= case["target_rtf"] if fast_depth else None
                     ),
                     "audio": str(output_wav),
+                    "wav_write_s": wav_write_seconds,
+                    "stage_profile": stage_profile,
                     "runs": runs,
                 }
             )
@@ -144,16 +190,20 @@ def main() -> int:
             )
 
     fast_results = [result for result in results if result["mode"] == "fast"]
-    speed_pass = bool(fast_results) and all(
-        result["speed_target_pass"] for result in fast_results
+    speed_pass = (
+        all(result["speed_target_pass"] for result in fast_results)
+        if fast_results
+        else None
     )
     reproducibility_pass = all(result["exact_reproducible"] for result in results)
-    exact_match_pass = not exact_matches or all(exact_matches.values())
+    exact_match_pass = all(exact_matches.values()) if exact_matches else None
 
     report = {
         "schema_version": 1,
         "created_at": datetime.now(timezone.utc).isoformat(),
         "model": args.model,
+        "resolved_model_path": str(resolved_model),
+        "model_provenance": provenance,
         "runtime_commit": subprocess.check_output(
             ["git", "rev-parse", "HEAD"], cwd=ROOT, text=True
         ).strip(),
@@ -166,6 +216,8 @@ def main() -> int:
             "model_load_in_rtf": False,
             "reference_preprocessing_in_rtf": True,
             "wav_write_in_rtf": False,
+            "output_materialization_in_rtf": False,
+            "stage_profile_in_rtf": False,
             "load_seconds": load_seconds,
         },
         "results": results,
@@ -175,7 +227,11 @@ def main() -> int:
             "fixed_seed_reproducibility": reproducibility_pass,
             "fast_eager_exact_match": exact_match_pass,
         },
-        "pass": speed_pass and reproducibility_pass and exact_match_pass,
+        "pass": (
+            speed_pass is not False
+            and reproducibility_pass
+            and exact_match_pass is not False
+        ),
     }
     output_json = args.output / "speed.json"
     output_json.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n")

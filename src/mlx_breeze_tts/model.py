@@ -28,6 +28,25 @@ from .results import GenerationResult
 from .validation import validate_generation_args
 
 
+def _record_profile_stage(
+    profile: Optional[dict[str, Any]],
+    name: str,
+    started: float,
+    *values: mx.array,
+) -> None:
+    """Synchronize and accumulate one opt-in benchmark-only stage."""
+    if profile is None:
+        return
+    if values:
+        mx.eval(*values)
+    elapsed = time.perf_counter() - started
+    profile["synchronizes_at_stage_boundaries"] = True
+    stages = profile.setdefault("stages", {})
+    stage = stages.setdefault(name, {"seconds": 0.0, "calls": 0})
+    stage["seconds"] += elapsed
+    stage["calls"] += 1
+
+
 def _reset_streaming_on_abort(method):
     """Reset decoder state when a streaming generator is closed or errors."""
     method_signature = signature(method)
@@ -857,6 +876,7 @@ class Model(nn.Module):
         instruct: Optional[str],
         ref_audio: Optional[Union[str, Path, mx.array]],
         ref_text: Optional[str],
+        stage_profile: Optional[dict[str, Any]] = None,
     ) -> mx.array:
         if isinstance(ref_audio, (list, tuple)):
             if len(ref_audio) != 1:
@@ -878,7 +898,15 @@ class Model(nn.Module):
         segments: list[tuple[str, mx.array]] = []
         if ref_audio is not None:
             segments.append(("text", self._text_ids(f"{speaker}{ref_text}")))
-            segments.append(("audio", self._encode_reference(ref_audio)))
+            stage_started = time.perf_counter() if stage_profile is not None else 0.0
+            reference_codes = self._encode_reference(ref_audio)
+            _record_profile_stage(
+                stage_profile,
+                "reference_codec_encode",
+                stage_started,
+                reference_codes,
+            )
+            segments.append(("audio", reference_codes))
         target = f"{speaker}{text}"
         if instruct:
             target = f"{speaker}<ins_bos>{instruct}<ins_eos>{text}"
@@ -887,15 +915,28 @@ class Model(nn.Module):
         embeddings: list[mx.array] = []
         for kind, values in segments:
             if kind == "text":
+                stage_started = (
+                    time.perf_counter() if stage_profile is not None else 0.0
+                )
                 hidden = self.text_encoder(values[None, :])
-                embeddings.append(self.text_encoder_proj(hidden))
+                text_embeddings = self.text_encoder_proj(hidden)
+                _record_profile_stage(
+                    stage_profile,
+                    "text_encoder_and_projection",
+                    stage_started,
+                    text_embeddings,
+                )
+                embeddings.append(text_embeddings)
             else:
                 embeddings.append(self.backbone_model.embed_tokens(values))
                 eos_codes = mx.full(
                     (1, 1, self.num_codebooks), self.config.codebook_eos_token_id
                 )
                 embeddings.append(self.backbone_model.embed_tokens(eos_codes))
-        return mx.concatenate(embeddings, axis=1)
+        stage_started = time.perf_counter() if stage_profile is not None else 0.0
+        prompt = mx.concatenate(embeddings, axis=1)
+        _record_profile_stage(stage_profile, "prompt_assembly", stage_started, prompt)
+        return prompt
 
     def _sample_array(
         self,
@@ -1156,6 +1197,7 @@ class Model(nn.Module):
         stream: bool = False,
         streaming_interval: float = 2.0,
         fast_depth: bool = False,
+        _stage_profile: Optional[dict[str, Any]] = None,
         **_: object,
     ) -> Generator[GenerationResult, None, None]:
         """Generate Breeze audio for voice design, cloning, or direction."""
@@ -1179,15 +1221,26 @@ class Model(nn.Module):
 
         started = time.perf_counter()
         cond = self._prompt_embeddings(
-            text, voice=voice, instruct=instruct, ref_audio=ref_audio, ref_text=ref_text
+            text,
+            voice=voice,
+            instruct=instruct,
+            ref_audio=ref_audio,
+            ref_text=ref_text,
+            stage_profile=_stage_profile,
         )
         use_cfg = bool(instruct) and cfg_scale not in (None, 1.0)
         scale = 1.0 if cfg_scale is None else cfg_scale
         if use_cfg:
             uncond = self._prompt_embeddings(
-                text, voice=voice, instruct=None, ref_audio=ref_audio, ref_text=ref_text
+                text,
+                voice=voice,
+                instruct=None,
+                ref_audio=ref_audio,
+                ref_text=ref_text,
+                stage_profile=_stage_profile,
             )
 
+        stage_started = time.perf_counter() if _stage_profile is not None else 0.0
         cond_cache = self.backbone_model.make_cache()
         cond_hidden = self.backbone_model(input_embeddings=cond, cache=cond_cache)[
             :, -1, :
@@ -1197,6 +1250,17 @@ class Model(nn.Module):
             uncond_hidden = self.backbone_model(
                 input_embeddings=uncond, cache=uncond_cache
             )[:, -1, :]
+            _record_profile_stage(
+                _stage_profile,
+                "backbone_prefill",
+                stage_started,
+                cond_hidden,
+                uncond_hidden,
+            )
+        else:
+            _record_profile_stage(
+                _stage_profile, "backbone_prefill", stage_started, cond_hidden
+            )
 
         frames: list[mx.array] = []
         first_codebook_tokens: list[int] = []
@@ -1267,6 +1331,7 @@ class Model(nn.Module):
             )
 
         for _ in range(max_tokens):
+            stage_started = time.perf_counter() if _stage_profile is not None else 0.0
             cond_logits = self.lm_head(cond_hidden)
             if use_cfg:
                 uncond_logits = self.lm_head(uncond_hidden)
@@ -1284,8 +1349,12 @@ class Model(nn.Module):
                 top_k=top_k,
                 allow_eos=True,
             )
+            _record_profile_stage(
+                _stage_profile, "backbone_head_and_sample", stage_started
+            )
             if first == self.vocab_size:
                 break
+            stage_started = time.perf_counter() if _stage_profile is not None else 0.0
             frame = depth_method(
                 first,
                 cond_hidden,
@@ -1295,6 +1364,7 @@ class Model(nn.Module):
                 top_p=top_p,
                 top_k=top_k,
             )
+            _record_profile_stage(_stage_profile, "depth_decode", stage_started, frame)
             frames.append(frame)
             first_codebook_tokens.append(first)
             pending_frames.append(frame)
@@ -1304,13 +1374,22 @@ class Model(nn.Module):
                 chunk = pending_frames[:chunk_frames]
                 del pending_frames[:chunk_frames]
                 pending_codes = mx.stack(chunk, axis=0)[None, :, :]
+                stage_started = (
+                    time.perf_counter() if _stage_profile is not None else 0.0
+                )
                 stream_audio = self.audio_tokenizer.decoder.streaming_step(
                     mx.transpose(pending_codes, (0, 2, 1))
                 )
-                yield stream_result(
-                    self._audio_vector(stream_audio), len(chunk), final=False
+                stream_audio = self._audio_vector(stream_audio)
+                _record_profile_stage(
+                    _stage_profile,
+                    "waveform_codec_decode",
+                    stage_started,
+                    stream_audio,
                 )
+                yield stream_result(stream_audio, len(chunk), final=False)
             codebooks = frame[None, None, :]
+            stage_started = time.perf_counter() if _stage_profile is not None else 0.0
             cond_hidden = self.backbone_model(input_ids=codebooks, cache=cond_cache)[
                 :, -1, :
             ]
@@ -1318,9 +1397,24 @@ class Model(nn.Module):
                 uncond_hidden = self.backbone_model(
                     input_ids=codebooks, cache=uncond_cache
                 )[:, -1, :]
+                _record_profile_stage(
+                    _stage_profile,
+                    "backbone_decode",
+                    stage_started,
+                    cond_hidden,
+                    uncond_hidden,
+                )
+            else:
+                _record_profile_stage(
+                    _stage_profile, "backbone_decode", stage_started, cond_hidden
+                )
 
         if not frames:
+            stage_started = time.perf_counter() if _stage_profile is not None else 0.0
             empty_audio = self._empty_audio()
+            _record_profile_stage(
+                _stage_profile, "waveform_codec_decode", stage_started, empty_audio
+            )
             if stream:
                 self.audio_tokenizer.decoder.reset_streaming_state()
             mx.eval(empty_audio)
@@ -1349,18 +1443,30 @@ class Model(nn.Module):
         if stream:
             if pending_frames:
                 pending_codes = mx.stack(pending_frames, axis=0)[None, :, :]
+                stage_started = (
+                    time.perf_counter() if _stage_profile is not None else 0.0
+                )
                 stream_audio = self.audio_tokenizer.decoder.streaming_step(
                     mx.transpose(pending_codes, (0, 2, 1))
                 )
-                self.audio_tokenizer.decoder.reset_streaming_state()
-                yield stream_result(
-                    self._audio_vector(stream_audio), len(pending_frames), final=True
+                stream_audio = self._audio_vector(stream_audio)
+                _record_profile_stage(
+                    _stage_profile,
+                    "waveform_codec_decode",
+                    stage_started,
+                    stream_audio,
                 )
+                self.audio_tokenizer.decoder.reset_streaming_state()
+                yield stream_result(stream_audio, len(pending_frames), final=True)
             else:
                 self.audio_tokenizer.decoder.reset_streaming_state()
             return
         codes = mx.stack(frames, axis=0)[None, :, :]
+        stage_started = time.perf_counter() if _stage_profile is not None else 0.0
         audio = self._decode_codes(codes)
+        _record_profile_stage(
+            _stage_profile, "waveform_codec_decode", stage_started, audio
+        )
         samples = audio.shape[0]
         mx.eval(audio)
         if samples <= 0:
