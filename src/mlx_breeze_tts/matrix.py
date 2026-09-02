@@ -154,7 +154,7 @@ def build_acceptance_matrix(
             "(clears throat) May I have your attention?",
             None,
         ),
-        ("event_en_sigh", "(sigh) We have a long way to go.", None),
+        ("event_en_sigh", "(sigh) We have a long way to go.", 3),
         ("event_zh_laugh", "[笑] 这个答案真让人意外。", None),
         ("event_zh_cough", "[咳嗽] 不好意思，请稍等一下。", None),
         ("event_zh_clears_throat", "[清嗓子] 请大家注意。", 1),

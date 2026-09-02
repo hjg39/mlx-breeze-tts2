@@ -99,10 +99,20 @@ def test_full_benchmark_emits_complete_fail_closed_bundle(tmp_path, monkeypatch)
         call for call in model.generate_calls if call["text"] == "[清嗓子] 请大家注意。"
     )
     assert clears_throat_call["seed"] == 1
+    sigh_call = next(
+        call
+        for call in model.generate_calls
+        if call["text"] == "(sigh) We have a long way to go."
+    )
+    assert sigh_call["seed"] == 3
     assert all(
         call["seed"] == 42
         for call in model.generate_calls
-        if call["text"] != "[清嗓子] 请大家注意。"
+        if call["text"]
+        not in {
+            "[清嗓子] 请大家注意。",
+            "(sigh) We have a long way to go.",
+        }
     )
     assert report["matrix_coverage"]["pass"] is True
     assert len(report["samples"]) == 23

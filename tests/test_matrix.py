@@ -22,6 +22,8 @@ def test_acceptance_matrix_covers_every_completion_capability_once():
         case for case in cases if case["capability"] == "event_zh_clears_throat"
     )
     assert clears_throat["seed"] == 1
+    sigh = next(case for case in cases if case["capability"] == "event_en_sigh")
+    assert sigh["seed"] == 3
 
 
 def test_missing_references_are_explicit_not_silently_omitted():
