@@ -110,11 +110,12 @@ PYTHONPATH=src .venv/bin/python scripts/benchmark_8bit_speed.py \
   --runs 5
 ```
 
-`speed.json` records one path/case cold run, five acceptance runs by default,
-median and p90 RTF, peak memory, output materialization and WAV-write time, plus
-a separate synchronization-based stage profile. The profiled run is excluded
-from speed acceptance so its diagnostic barriers cannot make the RTF result
-look faster or slower.
+`speed.json` records exactly one model-cold run, one first-use prewarm for every
+path/case, five warmed acceptance runs by default, median and p90 RTF, peak
+memory, output materialization and WAV-write time, plus a separate
+synchronization-based stage profile. The profiled run is excluded from speed
+acceptance so its diagnostic barriers cannot make the RTF result look faster or
+slower.
 
 The candidate is not considered accepted until the report reaches steady-state
 RTF `<= 2.0`, CFG-4 RTF `<= 4.0`, and the existing parity, objective-quality,

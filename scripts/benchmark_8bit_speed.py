@@ -112,10 +112,24 @@ def main() -> int:
     results = []
 
     modes = ("eager", "fast") if args.mode == "compare" else (args.mode,)
+    cold_mode = modes[0]
+    cold_case = CASES[0]
+    _, model_cold_run = _generate(
+        model,
+        cold_case,
+        args.seed,
+        fast_depth=cold_mode == "fast",
+    )
+    model_cold_run.update({"mode": cold_mode, "case": cold_case["name"]})
     for mode in modes:
         fast_depth = mode == "fast"
         for case in CASES:
-            _, cold_run = _generate(model, case, args.seed, fast_depth=fast_depth)
+            if mode == cold_mode and case["name"] == cold_case["name"]:
+                prewarm_run = dict(model_cold_run)
+            else:
+                _, prewarm_run = _generate(
+                    model, case, args.seed, fast_depth=fast_depth
+                )
             runs = []
             final_audio = None
             for _ in range(args.runs):
@@ -144,8 +158,8 @@ def main() -> int:
                 {
                     **case,
                     "mode": mode,
-                    "cold_runs": 1,
-                    "cold_run": cold_run,
+                    "prewarm_runs": 1,
+                    "prewarm_run": prewarm_run,
                     "measured_runs": args.runs,
                     "median_rtf": median_rtf,
                     "p90_rtf": percentile(rtfs, 0.9),
@@ -202,6 +216,7 @@ def main() -> int:
             "stage_profile_in_rtf": False,
             "load_seconds": load_seconds,
         },
+        "model_cold_run": model_cold_run,
         "results": results,
         "fast_matches_eager": exact_matches,
         "validation": {

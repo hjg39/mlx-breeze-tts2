@@ -27,6 +27,7 @@ def finalize_stage_profile(profile: dict, measurement: dict) -> dict:
 
 def render_speed_markdown(report: dict) -> str:
     validation = report["validation"]
+    model_cold = report["model_cold_run"]
     lines = [
         "# Breeze 8-bit MLX Speed Evidence",
         "",
@@ -34,11 +35,14 @@ def render_speed_markdown(report: dict) -> str:
         f"- Model: `{report['resolved_model_path']}`",
         f"- Speed evidence: `{'pass' if report['pass'] else 'fail'}`",
         f"- Release acceptance: `{report['release_acceptance']}`",
+        f"- Model-cold run: `{model_cold['mode']} / {model_cold['case']}` at RTF `{model_cold['rtf']:.3f}`",
         "- Model loading, output materialization, stage profiling, and WAV writing are excluded from RTF.",
         "",
-        "## Cold and warmed results",
+        "## First-use and warmed results",
         "",
-        "| Mode | Case | Cold RTF | Median warm RTF | P90 | Target | Result | Peak GB |",
+        "The report contains exactly one true model-cold run. Other first-use rows warm their specific path and case after the model is already loaded.",
+        "",
+        "| Mode | Case | First-use RTF | Median warm RTF | P90 | Target | Result | Peak GB |",
         "|---|---|---:|---:|---:|---:|---|---:|",
     ]
     for result in report["results"]:
@@ -52,7 +56,7 @@ def render_speed_markdown(report: dict) -> str:
             "{target} | {gate} | {peak:.3f} |".format(
                 mode=result["mode"],
                 name=result["name"],
-                cold=result["cold_run"]["rtf"],
+                cold=result["prewarm_run"]["rtf"],
                 median=result["median_rtf"],
                 p90=result["p90_rtf"],
                 target=target_text,

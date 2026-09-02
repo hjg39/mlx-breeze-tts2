@@ -36,11 +36,12 @@ def test_markdown_keeps_release_acceptance_pending():
         "resolved_model_path": "/models/8bit",
         "pass": True,
         "release_acceptance": "pending",
+        "model_cold_run": {"mode": "fast", "case": "steady_state", "rtf": 2.5},
         "results": [
             {
                 "mode": "fast",
                 "name": "steady_state",
-                "cold_run": {"rtf": 2.5},
+                "prewarm_run": {"rtf": 2.5},
                 "median_rtf": 1.8,
                 "p90_rtf": 1.9,
                 "target_rtf": 2.0,
@@ -69,5 +70,6 @@ def test_markdown_keeps_release_acceptance_pending():
 
     assert "Speed evidence: `pass`" in markdown
     assert "Release acceptance: `pending`" in markdown
+    assert "Model-cold run: `fast / steady_state` at RTF `2.500`" in markdown
     assert "| fast | steady_state | 2.500 | 1.800 | 1.900 |" in markdown
     assert "manual listening review" in markdown
