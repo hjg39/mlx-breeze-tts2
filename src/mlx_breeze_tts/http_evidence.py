@@ -7,7 +7,6 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
-from .loader import load, resolve_model_path
 from .provenance import checkpoint_provenance
 
 REQUIRED_HTTP_CHECKS = (
@@ -40,6 +39,7 @@ def http_report_passes(report: dict, model_revision: str | None = None) -> bool:
 
 def capture_http_evidence(model_id: str | Path, output_path: str | Path) -> Path:
     from .benchmark import _probe_http
+    from .loader import load, resolve_model_path
 
     output_path = Path(output_path).expanduser().resolve()
     if output_path.exists():
