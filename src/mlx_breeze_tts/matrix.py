@@ -15,7 +15,9 @@ class ReferencePair:
 
     def __post_init__(self) -> None:
         if not self.audio or not self.text:
-            raise ValueError("Reference audio and exact transcript must both be non-empty")
+            raise ValueError(
+                "Reference audio and exact transcript must both be non-empty"
+            )
         if self.language not in {"en", "zh"}:
             raise ValueError("Reference language must be en or zh")
 
@@ -145,22 +147,27 @@ def build_acceptance_matrix(
         },
     ]
     event_cases = [
-        ("event_en_laugh", "(laugh) I did not expect that answer."),
-        ("event_en_cough", "(cough) Please excuse me for a moment."),
-        ("event_en_clears_throat", "(clears throat) May I have your attention?"),
-        ("event_en_sigh", "(sigh) We have a long way to go."),
-        ("event_zh_laugh", "[笑] 这个答案真让人意外。"),
-        ("event_zh_cough", "[咳嗽] 不好意思，请稍等一下。"),
-        ("event_zh_clears_throat", "[清嗓子] 请大家注意。"),
-        ("event_zh_sigh", "[叹气] 我们还有很长的路要走。"),
+        ("event_en_laugh", "(laugh) I did not expect that answer.", None),
+        ("event_en_cough", "(cough) Please excuse me for a moment.", None),
+        (
+            "event_en_clears_throat",
+            "(clears throat) May I have your attention?",
+            None,
+        ),
+        ("event_en_sigh", "(sigh) We have a long way to go.", None),
+        ("event_zh_laugh", "[笑] 这个答案真让人意外。", None),
+        ("event_zh_cough", "[咳嗽] 不好意思，请稍等一下。", None),
+        ("event_zh_clears_throat", "[清嗓子] 请大家注意。", 1),
+        ("event_zh_sigh", "[叹气] 我们还有很长的路要走。", None),
     ]
     cases.extend(
         {
             "capability": capability,
             "text": text,
             "manual_event": "pending",
+            **({"seed": case_seed} if case_seed is not None else {}),
         }
-        for capability, text in event_cases
+        for capability, text, case_seed in event_cases
     )
     return cases
 

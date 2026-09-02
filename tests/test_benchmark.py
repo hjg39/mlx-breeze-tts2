@@ -95,6 +95,15 @@ def test_full_benchmark_emits_complete_fail_closed_bundle(tmp_path, monkeypatch)
     report = json.loads(summary_path.read_text())
     assert report["runtime_options"] == {"fast_depth": True}
     assert all(call["fast_depth"] is True for call in model.generate_calls)
+    clears_throat_call = next(
+        call for call in model.generate_calls if call["text"] == "[清嗓子] 请大家注意。"
+    )
+    assert clears_throat_call["seed"] == 1
+    assert all(
+        call["seed"] == 42
+        for call in model.generate_calls
+        if call["text"] != "[清嗓子] 请大家注意。"
+    )
     assert report["matrix_coverage"]["pass"] is True
     assert len(report["samples"]) == 23
     assert all(sample["samples"] > 0 for sample in report["samples"])

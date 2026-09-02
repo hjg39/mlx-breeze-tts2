@@ -18,6 +18,10 @@ def test_acceptance_matrix_covers_every_completion_capability_once():
     capabilities = {case["capability"] for case in cases}
     assert REQUIRED_CAPABILITIES | REQUIRED_EVENTS <= capabilities
     assert len(cases) == 23
+    clears_throat = next(
+        case for case in cases if case["capability"] == "event_zh_clears_throat"
+    )
+    assert clears_throat["seed"] == 1
 
 
 def test_missing_references_are_explicit_not_silently_omitted():
@@ -25,9 +29,9 @@ def test_missing_references_are_explicit_not_silently_omitted():
     clone_cases = [case for case in cases if "clone" in case["capability"]]
     assert len(clone_cases) == 4
     assert all(case["skip_reason"] for case in clone_cases)
-    assert next(
-        case for case in cases if case["capability"] == "voice_direction_en"
-    )["skip_reason"]
+    assert next(case for case in cases if case["capability"] == "voice_direction_en")[
+        "skip_reason"
+    ]
 
 
 def test_reference_pair_must_be_exactly_paired_and_language_bounded():

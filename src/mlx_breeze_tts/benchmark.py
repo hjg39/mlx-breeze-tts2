@@ -223,7 +223,7 @@ def run_benchmark(
                 "ref_audio": case.get("ref_audio"),
                 "ref_text": case.get("ref_text"),
                 "cfg_scale": 4 if case.get("instruct") else 1,
-                "seed": seed,
+                "seed": case.get("seed", seed),
                 "stream": case.get("stream", False),
                 "streaming_interval": 1.0,
                 "temperature": case.get("temperature", 0.9),
