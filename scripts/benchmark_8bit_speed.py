@@ -46,6 +46,12 @@ CASES = (
     },
 )
 
+STREAMING_CASE = {
+    "text": "This response is streamed incrementally as it is generated.",
+    "instruct": None,
+    "cfg_scale": 1.0,
+}
+
 
 def _generate(
     model,
@@ -90,11 +96,71 @@ def _generate(
     return audio, measurement
 
 
+def _measure_ttfa(model, seed: int, *, fast_depth: bool) -> dict:
+    """Measure one first-audio chunk and always reset streaming state."""
+    reset_peak_memory = getattr(mx, "reset_peak_memory", None)
+    if callable(reset_peak_memory):
+        reset_peak_memory()
+    started = time.perf_counter()
+    stream = model.generate(
+        **STREAMING_CASE,
+        max_tokens=1500,
+        seed=seed,
+        stream=True,
+        streaming_interval=1.0,
+        fast_depth=fast_depth,
+    )
+    try:
+        chunk = next(stream)
+        mx.eval(chunk.audio)
+        wall_seconds = time.perf_counter() - started
+        ttfa_seconds = chunk.time_to_first_audio_seconds or wall_seconds
+        return {
+            "ttfa_s": ttfa_seconds,
+            "wall_s": wall_seconds,
+            "samples": int(chunk.audio.shape[0]),
+            "peak_memory_gb": mx.get_peak_memory() / 1e9,
+        }
+    finally:
+        stream.close()
+
+
+def _compare_ttfa(model, seed: int, runs: int) -> dict:
+    """Interleave eager and fast measurements to limit thermal-order bias."""
+    prewarm = {
+        mode: _measure_ttfa(model, seed, fast_depth=mode == "fast")
+        for mode in ("eager", "fast")
+    }
+    measured = {"eager": [], "fast": []}
+    for index in range(runs):
+        order = ("eager", "fast") if index % 2 == 0 else ("fast", "eager")
+        for mode in order:
+            measured[mode].append(_measure_ttfa(model, seed, fast_depth=mode == "fast"))
+    medians = {
+        mode: statistics.median(item["ttfa_s"] for item in mode_runs)
+        for mode, mode_runs in measured.items()
+    }
+    regression = medians["fast"] / medians["eager"] - 1.0
+    return {
+        "case": "streaming_en",
+        "streaming_interval_s": 1.0,
+        "prewarm": prewarm,
+        "runs": measured,
+        "median_ttfa_s": medians,
+        "fast_vs_eager_regression_fraction": regression,
+        "target_max_regression_fraction": 0.10,
+        "pass": regression <= 0.10,
+        "measurement_order": "alternating eager/fast by pair",
+    }
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--runs", type=int, default=5)
+    parser.add_argument("--ttfa-runs", type=int, default=5)
+    parser.add_argument("--skip-ttfa", action="store_true")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument(
         "--mode", choices=("compare", "eager", "fast"), default="compare"
@@ -102,6 +168,8 @@ def main() -> int:
     args = parser.parse_args()
     if args.runs < 1:
         parser.error("--runs must be positive")
+    if args.ttfa_runs < 1:
+        parser.error("--ttfa-runs must be positive")
 
     args.output.mkdir(parents=True, exist_ok=True)
     resolved_model = resolve_model_path(args.model)
@@ -193,6 +261,10 @@ def main() -> int:
     )
     reproducibility_pass = all(result["exact_reproducible"] for result in results)
     exact_match_pass = all(exact_matches.values()) if exact_matches else None
+    ttfa_comparison = (
+        None if args.skip_ttfa else _compare_ttfa(model, args.seed, args.ttfa_runs)
+    )
+    ttfa_pass = ttfa_comparison["pass"] if ttfa_comparison is not None else None
 
     report = {
         "schema_version": 1,
@@ -219,11 +291,13 @@ def main() -> int:
         "model_cold_run": model_cold_run,
         "results": results,
         "fast_matches_eager": exact_matches,
+        "streaming_ttfa_comparison": ttfa_comparison,
         "validation": {
             "speed_targets": speed_pass,
+            "streaming_ttfa_regression": ttfa_pass,
             "fixed_seed_reproducibility": reproducibility_pass,
             "fast_eager_exact_match": exact_match_pass,
-            "quality_review_required": exact_match_pass is False,
+            "quality_review_required": exact_match_pass is not True,
         },
         "release_acceptance": "pending",
         "pending_release_gates": [
@@ -233,7 +307,9 @@ def main() -> int:
             "waveform, streaming, HTTP, event, and cancellation regression gates",
             "manual listening review",
         ],
-        "pass": (speed_pass is not False and reproducibility_pass),
+        "pass": (
+            speed_pass is not False and ttfa_pass is not False and reproducibility_pass
+        ),
     }
     output_json = args.output / "speed.json"
     output_json.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n")

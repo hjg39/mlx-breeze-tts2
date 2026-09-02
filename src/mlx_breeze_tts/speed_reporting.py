@@ -65,6 +65,24 @@ def render_speed_markdown(report: dict) -> str:
             )
         )
 
+    ttfa = report.get("streaming_ttfa_comparison")
+    if ttfa is not None:
+        medians = ttfa["median_ttfa_s"]
+        lines.extend(
+            [
+                "",
+                "## Streaming TTFA comparison",
+                "",
+                "Eager and fast measurements alternate by pair to reduce thermal-order bias.",
+                "",
+                f"- Eager median TTFA: `{medians['eager']:.3f} s`",
+                f"- Fast median TTFA: `{medians['fast']:.3f} s`",
+                "- Fast/eager regression: "
+                f"`{100.0 * ttfa['fast_vs_eager_regression_fraction']:.1f}%`",
+                f"- TTFA regression gate: `{'pass' if ttfa['pass'] else 'fail'}`",
+            ]
+        )
+
     lines.extend(["", "## Synchronized stage profiles", ""])
     for result in report["results"]:
         lines.extend(
@@ -89,6 +107,8 @@ def render_speed_markdown(report: dict) -> str:
             "## Validation",
             "",
             f"- Speed targets: `{validation['speed_targets']}`",
+            "- Streaming TTFA regression: "
+            f"`{validation.get('streaming_ttfa_regression')}`",
             f"- Fixed-seed reproducibility: `{validation['fixed_seed_reproducibility']}`",
             f"- Fast/eager exact waveform match: `{validation['fast_eager_exact_match']}`",
             f"- Additional quality review required: `{validation['quality_review_required']}`",

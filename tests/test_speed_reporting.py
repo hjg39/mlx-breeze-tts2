@@ -58,8 +58,14 @@ def test_markdown_keeps_release_acceptance_pending():
                 },
             }
         ],
+        "streaming_ttfa_comparison": {
+            "median_ttfa_s": {"eager": 2.0, "fast": 1.5},
+            "fast_vs_eager_regression_fraction": -0.25,
+            "pass": True,
+        },
         "validation": {
             "speed_targets": True,
+            "streaming_ttfa_regression": True,
             "fixed_seed_reproducibility": True,
             "fast_eager_exact_match": True,
             "quality_review_required": False,
@@ -73,4 +79,6 @@ def test_markdown_keeps_release_acceptance_pending():
     assert "Release acceptance: `pending`" in markdown
     assert "Model-cold run: `fast / steady_state` at RTF `2.500`" in markdown
     assert "| fast | steady_state | 2.500 | 1.800 | 1.900 |" in markdown
+    assert "Fast median TTFA: `1.500 s`" in markdown
+    assert "TTFA regression gate: `pass`" in markdown
     assert "manual listening review" in markdown
