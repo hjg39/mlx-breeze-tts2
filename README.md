@@ -92,12 +92,13 @@ result = next(
 write_audio("output.wav", result.audio, result.sample_rate)
 ```
 
-## Experimental 8-bit fast depth path
+## Verified 8-bit fast depth candidate
 
 The 8-bit runtime includes an opt-in incremental depth-decoder path. It keeps
-dependent codebook tokens on the MLX device and uses a short per-frame KV cache
-instead of recomputing the complete depth prefix. Until real-device quality and
-performance gates pass, the compatible eager path remains the default.
+dependent codebook tokens on the MLX device, batches conditional and
+unconditional depth CFG, and compiles one exact-size incremental KV-cache graph
+per frame instead of recomputing the complete depth prefix. The compatible eager
+path remains the default until the new fast-path listening review is complete.
 
 Use `--fast-depth` for a candidate generation or `--no-fast-depth` to select the
 eager reference explicitly. Compare both paths with cold/warm scope and fixed-seed
@@ -106,23 +107,40 @@ hashes recorded in JSON:
 ```bash
 PYTHONPATH=src .venv/bin/python scripts/benchmark_8bit_speed.py \
   --model models/breeze-8bit-sensitive-bf16-v2 \
-  --output reports/optimization/8bit-fast-depth \
-  --runs 5
+  --output reports/optimization/8bit-fast-depth/run-fast \
+  --mode fast --runs 5 --ttfa-runs 5
 ```
 
 `speed.json` records exactly one model-cold run, one first-use prewarm for every
 path/case, five warmed acceptance runs by default, median and p90 RTF, peak
-memory, output materialization and WAV-write time, plus a separate
-synchronization-based stage profile. The profiled run is excluded from speed
-acceptance so its diagnostic barriers cannot make the RTF result look faster or
-slower.
+memory, output materialization and WAV-write time, an alternating eager/fast
+five-run TTFA comparison, plus a separate synchronization-based stage profile.
+The profiled run is excluded from speed acceptance so its diagnostic barriers
+cannot make the RTF result look faster or slower.
+
+The final M3 Max run at runtime commit `e40bbfb` passed with the following warmed
+medians. These numbers exclude model loading and WAV writing:
+
+| Gate | Eager/reference | Fast | Required | Result |
+|---|---:|---:|---:|---|
+| Ordinary steady-state RTF | 2.713 release baseline | 1.026 | <= 2.0 | pass |
+| Voice-design CFG=4 RTF | 5.8-5.9 release baseline | 1.321 | <= 4.0 | pass |
+| Streaming TTFA | 2.314 s paired median | 1.106 s | <= 10% regression | pass (-52.2%) |
+
+The complete fast-path matrix generated all 23 cases and passed Python, CLI,
+HTTP, streaming, cancellation, sampling, seed, and waveform checks. Objective
+evaluation measured max CER `0.0303`, clone cosine/P10 minima `0.6415`/`0.6239`,
+and max reference leakage `0.1695`; precision-specific PyTorch parity also
+passed. Peak matrix memory was `10.82 GB`, below the prior 8-bit matrix's
+`10.95 GB`. The evidence index and known thermal-order caveat are recorded in
+[`docs/optimization/2026-09-02-8bit-fast-depth-results.md`](docs/optimization/2026-09-02-8bit-fast-depth-results.md).
 
 The candidate is not considered accepted until the report reaches steady-state
 RTF `<= 2.0`, CFG-4 RTF `<= 4.0`, and the existing parity, objective-quality,
 waveform, streaming, interface, event, and listening gates remain passing.
 Fast/eager hashes are recorded as a diagnostic. A non-bit-exact result requires
 the full quality review but does not redefine or fail the separate speed metric.
-After the focused speed comparison passes, rerun the complete 23-case matrix
+After the focused speed run passes, rerun the complete 23-case matrix
 with `benchmark --fast-depth`; its `summary.json` records the selected runtime
 path under `runtime_options.fast_depth`. The default matrix remains eager until
 the candidate clears every gate.
