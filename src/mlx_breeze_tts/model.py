@@ -8,6 +8,7 @@ no PyTorch or upstream Breeze runtime is required at inference time.
 
 import json
 import time
+import warnings
 from functools import wraps
 from inspect import signature
 from pathlib import Path
@@ -1433,15 +1434,46 @@ class Model(nn.Module):
             if first == self.vocab_size:
                 break
             stage_started = time.perf_counter() if _stage_profile is not None else 0.0
-            frame = depth_method(
-                first,
-                cond_hidden,
-                unconditional_hidden=uncond_hidden if use_cfg else None,
-                cfg_scale=scale,
-                temperature=temperature,
-                top_p=top_p,
-                top_k=top_k,
-            )
+            # A first-use compile failure may have advanced MLX's random state.
+            # Save it after sampling codebook zero so eager fallback resumes the
+            # exact same sequence. Once any frame exists, failures are surfaced
+            # instead of silently combining two execution paths.
+            fallback_seed = None
+            if fast_depth and not frames:
+                random_words = mx.random.state[0].tolist()
+                fallback_seed = (int(random_words[0]) << 32) | int(random_words[1])
+            try:
+                frame = depth_method(
+                    first,
+                    cond_hidden,
+                    unconditional_hidden=uncond_hidden if use_cfg else None,
+                    cfg_scale=scale,
+                    temperature=temperature,
+                    top_p=top_p,
+                    top_k=top_k,
+                )
+            except Exception as exc:
+                if not fast_depth or frames or fallback_seed is None:
+                    raise
+                mx.random.seed(fallback_seed)
+                self._compiled_depth_frame = None
+                fast_depth = False
+                depth_method = self._depth_token_array
+                warnings.warn(
+                    "Fast depth initialization failed; using eager depth decoding "
+                    f"for this generation ({type(exc).__name__}: {exc}).",
+                    RuntimeWarning,
+                    stacklevel=2,
+                )
+                frame = depth_method(
+                    first,
+                    cond_hidden,
+                    unconditional_hidden=uncond_hidden if use_cfg else None,
+                    cfg_scale=scale,
+                    temperature=temperature,
+                    top_p=top_p,
+                    top_k=top_k,
+                )
             _record_profile_stage(_stage_profile, "depth_decode", stage_started, frame)
             frames.append(frame)
             first_codebook_tokens.append(first)

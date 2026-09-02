@@ -488,6 +488,76 @@ def test_early_eos_yields_silent_result_instead_of_raising(monkeypatch):
     assert results[0].audio.tolist() == [0.0, 0.0, 0.0, 0.0]
 
 
+def test_fast_depth_first_frame_failure_falls_back_before_audio(monkeypatch):
+    model = Model(tiny_config())
+
+    class Decoder:
+        decode_upsample_rate = 24000
+
+        def reset_streaming_state(self):
+            pass
+
+    class AudioTokenizer:
+        decode_upsample_rate = 24000
+        decoder = Decoder()
+
+        def decode(self, codes):
+            assert codes.shape == (1, 1, 3)
+            return mx.zeros((1, 4)), mx.array([4], dtype=mx.int32)
+
+    class Backbone:
+        def make_cache(self):
+            return []
+
+        def __call__(self, input_embeddings=None, input_ids=None, cache=None):
+            del cache
+            length = (
+                input_embeddings.shape[1]
+                if input_embeddings is not None
+                else input_ids.shape[1]
+            )
+            return mx.zeros((1, length, 16))
+
+    class Head:
+        def __init__(self):
+            self.calls = 0
+
+        def __call__(self, _hidden):
+            self.calls += 1
+            logits = mx.full((1, 9), -100.0)
+            logits[..., 1 if self.calls == 1 else 8] = 100.0
+            return logits
+
+    eager_calls = []
+    model.audio_tokenizer = AudioTokenizer()
+    model.backbone_model = Backbone()
+    model.lm_head = Head()
+    monkeypatch.setattr(
+        model, "_prompt_embeddings", lambda *_args, **_kwargs: mx.zeros((1, 1, 16))
+    )
+    monkeypatch.setattr(
+        model,
+        "_cached_depth_token_array",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(RuntimeError("compile")),
+    )
+    monkeypatch.setattr(
+        model,
+        "_depth_token_array",
+        lambda first, *_args, **_kwargs: (
+            eager_calls.append(first) or mx.array([first, 2, 3], dtype=mx.int32)
+        ),
+    )
+
+    with pytest.warns(RuntimeWarning, match="using eager depth decoding"):
+        results = list(
+            model.generate("test", temperature=0, top_k=0, seed=42, fast_depth=True)
+        )
+
+    assert eager_calls == [1]
+    assert len(results) == 1
+    assert results[0].token_count == 1
+
+
 def test_exact_stream_interval_marks_last_audible_chunk_final(monkeypatch):
     model = Model(tiny_config())
 
