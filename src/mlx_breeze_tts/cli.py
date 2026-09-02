@@ -32,6 +32,9 @@ def _parser() -> argparse.ArgumentParser:
         "--stream", action=argparse.BooleanOptionalAction, default=True
     )
     generate.add_argument("--streaming-interval", type=float, default=2.0)
+    generate.add_argument(
+        "--fast-depth", action=argparse.BooleanOptionalAction, default=False
+    )
     generate.add_argument("--output", type=Path, default=Path("output.wav"))
 
     conversion = sub.add_parser("convert")
@@ -369,6 +372,7 @@ def main(argv=None) -> int:
         seed=args.seed,
         stream=args.stream,
         streaming_interval=args.streaming_interval,
+        fast_depth=args.fast_depth,
     )
     if args.stream:
         write_audio_chunks(args.output, generator, model.sample_rate)
@@ -381,7 +385,16 @@ def main(argv=None) -> int:
         info = sf.info(args.output)
         dur = info.duration
         rtf = elapsed / dur if dur > 0 else 0.0
-        print(json.dumps({"task": "tts", "elapsed_s": round(elapsed, 4), "duration_s": round(dur, 4), "real_time_factor": round(rtf, 4)}))
+        print(
+            json.dumps(
+                {
+                    "task": "tts",
+                    "elapsed_s": round(elapsed, 4),
+                    "duration_s": round(dur, 4),
+                    "real_time_factor": round(rtf, 4),
+                }
+            )
+        )
     except Exception:
         pass
     print(args.output)

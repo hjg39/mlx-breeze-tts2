@@ -42,6 +42,7 @@ def test_generate_cli_defaults_match_approved_spec():
     assert args.max_tokens == 1500
     assert args.instruction == "Speak clearly and naturally."
     assert args.stream is True
+    assert args.fast_depth is False
 
 
 def test_release_review_validator_cli_surface():
@@ -60,6 +61,11 @@ def test_generate_cli_accepts_upstream_positional_model_and_local_option():
     assert positional.model_option is None
     assert option.model_option == "local/model"
     assert option.stream is False
+
+    fast = _parser().parse_args(
+        ["generate", "org/model", "--text", "hello", "--fast-depth"]
+    )
+    assert fast.fast_depth is True
 
 
 def test_serve_cli_accepts_upstream_positional_model_and_port_default():

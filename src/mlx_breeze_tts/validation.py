@@ -35,6 +35,7 @@ def validate_generation_args(
     seed,
     stream,
     streaming_interval,
+    fast_depth,
 ) -> None:
     if not isinstance(text, str) or not text.strip():
         raise ValueError("text must be a non-empty string.")
@@ -67,6 +68,8 @@ def validate_generation_args(
             raise ValueError("cfg_scale must be positive.")
     if not isinstance(stream, bool):
         raise ValueError("stream must be a boolean.")
+    if not isinstance(fast_depth, bool):
+        raise ValueError("fast_depth must be a boolean.")
     streaming_interval = _finite_real(streaming_interval, "streaming_interval")
     if streaming_interval <= 0:
         raise ValueError("streaming_interval must be positive.")

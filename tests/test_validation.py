@@ -19,6 +19,7 @@ def _valid(**overrides):
         "seed": 42,
         "stream": False,
         "streaming_interval": 2.0,
+        "fast_depth": True,
     }
     values.update(overrides)
     return values
@@ -46,6 +47,7 @@ def _valid(**overrides):
         ("seed", True),
         ("seed", -1),
         ("stream", 1),
+        ("fast_depth", 1),
         ("streaming_interval", math.inf),
         ("streaming_interval", 0),
     ],

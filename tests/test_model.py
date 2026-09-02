@@ -158,10 +158,10 @@ def test_depth_cfg_applies_to_every_remaining_codebook(monkeypatch):
 
     def sample(logits, **_kwargs):
         sampled_logits.append(logits)
-        return 1
+        return mx.array([1], dtype=mx.int32)
 
     monkeypatch.setattr(model.depth_decoder, "next_logits", next_logits)
-    monkeypatch.setattr(model, "_sample", sample)
+    monkeypatch.setattr(model, "_sample_array", sample)
     tokens = model._depth_tokens(
         1,
         mx.ones((1, 16)),
@@ -186,10 +186,10 @@ def test_depth_cfg_masks_reserved_tokens_at_every_step(monkeypatch):
 
     def sample(logits, **_kwargs):
         sampled_logits.append(logits)
-        return 1
+        return mx.array([1], dtype=mx.int32)
 
     monkeypatch.setattr(model.depth_decoder, "next_logits", next_logits)
-    monkeypatch.setattr(model, "_sample", sample)
+    monkeypatch.setattr(model, "_sample_array", sample)
     model._depth_tokens(
         1,
         mx.ones((1, 16)),
@@ -204,6 +204,60 @@ def test_depth_cfg_masks_reserved_tokens_at_every_step(monkeypatch):
     for logits in sampled_logits:
         assert logits[0, :5].tolist() == [0, 1, 2, 3, 4]
         assert all(value == float("-inf") for value in logits[0, 5:].tolist())
+
+
+def test_depth_array_keeps_sampled_tokens_on_device(monkeypatch):
+    model = Model(tiny_config())
+    sample_calls = 0
+
+    def next_logits(_token_ids, _hidden):
+        return mx.arange(8, dtype=mx.float32)[None, :]
+
+    def sample_array(_logits, **_kwargs):
+        nonlocal sample_calls
+        sample_calls += 1
+        return mx.array([sample_calls], dtype=mx.int32)
+
+    def materialized_sample(*_args, **_kwargs):
+        raise AssertionError("depth generation must not materialize tokens on the host")
+
+    monkeypatch.setattr(model.depth_decoder, "next_logits", next_logits)
+    monkeypatch.setattr(model, "_sample_array", sample_array)
+    monkeypatch.setattr(model, "_sample", materialized_sample)
+    tokens = model._depth_token_array(
+        1,
+        mx.ones((1, 16)),
+        unconditional_hidden=None,
+        cfg_scale=1.0,
+        temperature=0,
+        top_p=1,
+        top_k=0,
+    )
+
+    assert isinstance(tokens, mx.array)
+    assert tokens.tolist() == [1, 1, 2, 3]
+    assert sample_calls == 3
+
+
+@pytest.mark.parametrize("use_cfg", [False, True])
+def test_cached_depth_matches_full_depth_for_deterministic_sampling(use_cfg):
+    model = Model(tiny_config())
+    assert model.depth_decoder.model.make_cache()[0].step == model.num_codebooks
+    conditional = mx.ones((1, 16))
+    unconditional = mx.zeros((1, 16)) if use_cfg else None
+    kwargs = {
+        "unconditional_hidden": unconditional,
+        "cfg_scale": 3.0,
+        "temperature": 0,
+        "top_p": 1,
+        "top_k": 0,
+    }
+
+    full = model._depth_token_array(1, conditional, **kwargs)
+    cached = model._cached_depth_token_array(1, conditional, **kwargs)
+
+    assert cached.shape == full.shape == (4,)
+    assert cached.tolist() == full.tolist()
 
 
 def test_repetition_penalty_is_sign_aware():
@@ -302,7 +356,9 @@ def test_stream_flushes_at_exact_interval_and_resets_state(monkeypatch):
         model, "_prompt_embeddings", lambda *_args, **_kwargs: mx.zeros((1, 1, 16))
     )
     monkeypatch.setattr(
-        model, "_depth_tokens", lambda first, *_args, **_kwargs: [first, 2, 3]
+        model,
+        "_depth_token_array",
+        lambda first, *_args, **_kwargs: mx.array([first, 2, 3], dtype=mx.int32),
     )
     model.lm_head = Head()
 
@@ -357,7 +413,9 @@ def test_stream_close_resets_decoder_state(monkeypatch):
         model, "_prompt_embeddings", lambda *_args, **_kwargs: mx.zeros((1, 1, 16))
     )
     monkeypatch.setattr(
-        model, "_depth_tokens", lambda first, *_args, **_kwargs: [first, 2, 3]
+        model,
+        "_depth_token_array",
+        lambda first, *_args, **_kwargs: mx.array([first, 2, 3], dtype=mx.int32),
     )
     model.lm_head = Head()
 
@@ -470,7 +528,9 @@ def test_exact_stream_interval_marks_last_audible_chunk_final(monkeypatch):
         model, "_prompt_embeddings", lambda *_args, **_kwargs: mx.zeros((1, 1, 16))
     )
     monkeypatch.setattr(
-        model, "_depth_tokens", lambda first, *_args, **_kwargs: [first, 2, 3]
+        model,
+        "_depth_token_array",
+        lambda first, *_args, **_kwargs: mx.array([first, 2, 3], dtype=mx.int32),
     )
 
     chunks = list(

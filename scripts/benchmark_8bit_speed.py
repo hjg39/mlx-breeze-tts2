@@ -1,0 +1,188 @@
+#!/usr/bin/env python3
+"""Measure warmed 8-bit Breeze generation without including model load time."""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import importlib.metadata
+import json
+import math
+import platform
+import statistics
+import subprocess
+import time
+from datetime import datetime, timezone
+from pathlib import Path
+
+import mlx.core as mx
+import numpy as np
+
+from mlx_breeze_tts import load, write_audio
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+CASES = (
+    {
+        "name": "steady_state",
+        "text": "Steady state performance is measured after warmup.",
+        "instruct": None,
+        "cfg_scale": 1.0,
+        "target_rtf": 2.0,
+    },
+    {
+        "name": "voice_design_cfg4",
+        "text": "Welcome aboard. Your journey begins now.",
+        "instruct": "A warm, thoughtful young woman with a clear voice.",
+        "cfg_scale": 4.0,
+        "target_rtf": 4.0,
+    },
+)
+
+
+def _percentile(values: list[float], fraction: float) -> float:
+    ordered = sorted(values)
+    index = max(0, math.ceil(fraction * len(ordered)) - 1)
+    return ordered[index]
+
+
+def _generate(
+    model, case: dict, seed: int, *, fast_depth: bool
+) -> tuple[mx.array, float, float]:
+    started = time.perf_counter()
+    chunks = list(
+        model.generate(
+            text=case["text"],
+            instruct=case["instruct"],
+            cfg_scale=case["cfg_scale"],
+            max_tokens=1500,
+            seed=seed,
+            fast_depth=fast_depth,
+        )
+    )
+    audio = mx.concatenate([chunk.audio for chunk in chunks])
+    mx.eval(audio)
+    elapsed = time.perf_counter() - started
+    duration = int(audio.shape[0]) / model.sample_rate
+    if duration <= 0:
+        raise RuntimeError(f"{case['name']} generated empty audio")
+    return audio, elapsed, duration
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--model", required=True)
+    parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--runs", type=int, default=5)
+    parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument(
+        "--mode", choices=("compare", "eager", "fast"), default="compare"
+    )
+    args = parser.parse_args()
+    if args.runs < 1:
+        parser.error("--runs must be positive")
+
+    args.output.mkdir(parents=True, exist_ok=True)
+    load_started = time.perf_counter()
+    model = load(args.model)
+    load_seconds = time.perf_counter() - load_started
+    results = []
+
+    modes = ("eager", "fast") if args.mode == "compare" else (args.mode,)
+    for mode in modes:
+        fast_depth = mode == "fast"
+        for case in CASES:
+            _generate(model, case, args.seed, fast_depth=fast_depth)
+            runs = []
+            final_audio = None
+            for _ in range(args.runs):
+                audio, elapsed, duration = _generate(
+                    model, case, args.seed, fast_depth=fast_depth
+                )
+                values = np.asarray(audio, dtype=np.float32)
+                runs.append(
+                    {
+                        "elapsed_s": elapsed,
+                        "duration_s": duration,
+                        "rtf": elapsed / duration,
+                        "sha256": hashlib.sha256(values.tobytes()).hexdigest(),
+                    }
+                )
+                final_audio = audio
+
+            output_wav = args.output / f"{mode}_{case['name']}.wav"
+            write_audio(output_wav, final_audio, model.sample_rate)
+            rtfs = [run["rtf"] for run in runs]
+            median_rtf = statistics.median(rtfs)
+            results.append(
+                {
+                    **case,
+                    "mode": mode,
+                    "warmup_runs": 1,
+                    "measured_runs": args.runs,
+                    "median_rtf": median_rtf,
+                    "p90_rtf": _percentile(rtfs, 0.9),
+                    "best_rtf": min(rtfs),
+                    "exact_reproducible": len({run["sha256"] for run in runs}) == 1,
+                    "speed_target_pass": (
+                        median_rtf <= case["target_rtf"] if fast_depth else None
+                    ),
+                    "audio": str(output_wav),
+                    "runs": runs,
+                }
+            )
+
+    by_mode_case = {(result["mode"], result["name"]): result for result in results}
+    exact_matches = {}
+    if args.mode == "compare":
+        for case in CASES:
+            eager = by_mode_case[("eager", case["name"])]
+            fast = by_mode_case[("fast", case["name"])]
+            exact_matches[case["name"]] = (
+                eager["runs"][0]["sha256"] == fast["runs"][0]["sha256"]
+            )
+
+    fast_results = [result for result in results if result["mode"] == "fast"]
+    speed_pass = bool(fast_results) and all(
+        result["speed_target_pass"] for result in fast_results
+    )
+    reproducibility_pass = all(result["exact_reproducible"] for result in results)
+    exact_match_pass = not exact_matches or all(exact_matches.values())
+
+    report = {
+        "schema_version": 1,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "model": args.model,
+        "runtime_commit": subprocess.check_output(
+            ["git", "rev-parse", "HEAD"], cwd=ROOT, text=True
+        ).strip(),
+        "hardware": {
+            "platform": platform.platform(),
+            "machine": platform.machine(),
+            "mlx": importlib.metadata.version("mlx"),
+        },
+        "measurement_scope": {
+            "model_load_in_rtf": False,
+            "reference_preprocessing_in_rtf": True,
+            "wav_write_in_rtf": False,
+            "load_seconds": load_seconds,
+        },
+        "results": results,
+        "fast_matches_eager": exact_matches,
+        "validation": {
+            "speed_targets": speed_pass,
+            "fixed_seed_reproducibility": reproducibility_pass,
+            "fast_eager_exact_match": exact_match_pass,
+        },
+        "pass": speed_pass and reproducibility_pass and exact_match_pass,
+    }
+    output_json = args.output / "speed.json"
+    output_json.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n")
+    print(output_json)
+    print(json.dumps(report, ensure_ascii=False, indent=2))
+    return 0 if report["pass"] else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

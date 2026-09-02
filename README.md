@@ -81,14 +81,38 @@ model = load(
     "vanch007/Sirocco-MLX-4bit",
     revision="0c4f095035f82e06574c41cdd1212ebada404638",
 )
-result = next(model.generate(
-    text="[笑] 欢迎来到今晚的故事时间。",
-    instruct="一位温柔自信的年轻女性，声音清晰。",
-    cfg_scale=4,
-    seed=7,
-))
+result = next(
+    model.generate(
+        text="[笑] 欢迎来到今晚的故事时间。",
+        instruct="一位温柔自信的年轻女性，声音清晰。",
+        cfg_scale=4,
+        seed=7,
+    )
+)
 write_audio("output.wav", result.audio, result.sample_rate)
 ```
+
+## Experimental 8-bit fast depth path
+
+The 8-bit runtime includes an opt-in incremental depth-decoder path. It keeps
+dependent codebook tokens on the MLX device and uses a short per-frame KV cache
+instead of recomputing the complete depth prefix. Until real-device quality and
+performance gates pass, the compatible eager path remains the default.
+
+Use `--fast-depth` for a candidate generation or `--no-fast-depth` to select the
+eager reference explicitly. Compare both paths with cold/warm scope and fixed-seed
+hashes recorded in JSON:
+
+```bash
+PYTHONPATH=src .venv/bin/python scripts/benchmark_8bit_speed.py \
+  --model models/breeze-8bit-sensitive-bf16-v2 \
+  --output reports/optimization/8bit-fast-depth \
+  --runs 5
+```
+
+The candidate is not considered accepted until the report reaches steady-state
+RTF `<= 2.0`, CFG-4 RTF `<= 4.0`, and the existing parity, objective-quality,
+waveform, streaming, interface, event, and listening gates remain passing.
 
 ## Conversion
 
