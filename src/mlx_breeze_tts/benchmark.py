@@ -152,9 +152,12 @@ def run_benchmark(
     ref_audio_zh: str | None = None,
     ref_text_zh: str | None = None,
     seed: int = 42,
+    fast_depth: bool = False,
     invoked_via_cli: bool = False,
     probe_http: bool = True,
 ) -> Path:
+    if not isinstance(fast_depth, bool):
+        raise ValueError("fast_depth must be a boolean")
     if ref_audio_en and ref_audio:
         raise ValueError("Use either legacy ref_audio or ref_audio_en, not both")
     if ref_text_en and ref_text:
@@ -227,6 +230,7 @@ def run_benchmark(
                 "top_p": case.get("top_p", 1.0),
                 "top_k": case.get("top_k", 50),
                 "repetition_penalty": case.get("repetition_penalty", 1.1),
+                "fast_depth": fast_depth,
             }
             if case.get("cancel_after_first_chunk"):
                 stream = model.generate(**kwargs)
@@ -328,6 +332,7 @@ def run_benchmark(
         "resolved_model_path": str(resolved),
         "hardware": platform.platform(),
         "seed": seed,
+        "runtime_options": {"fast_depth": fast_depth},
         "status": "audio_generated_evaluation_pending",
         "matrix_coverage": matrix_coverage(cases),
         "artifact_audit": {

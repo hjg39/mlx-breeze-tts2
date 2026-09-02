@@ -78,6 +78,9 @@ def _parser() -> argparse.ArgumentParser:
     benchmark.add_argument("--ref-audio-zh")
     benchmark.add_argument("--ref-text-zh")
     benchmark.add_argument("--seed", type=int, default=42)
+    benchmark.add_argument(
+        "--fast-depth", action=argparse.BooleanOptionalAction, default=False
+    )
     benchmark.add_argument("--skip-http-probe", action="store_true")
 
     verify = sub.add_parser("verify-evidence")
@@ -232,6 +235,7 @@ def main(argv=None) -> int:
             ref_audio_zh=args.ref_audio_zh,
             ref_text_zh=args.ref_text_zh,
             seed=args.seed,
+            fast_depth=args.fast_depth,
             invoked_via_cli=True,
             probe_http=not args.skip_http_probe,
         )

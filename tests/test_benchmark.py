@@ -35,7 +35,11 @@ class _Chunk:
 class _Model:
     sample_rate = 12
 
+    def __init__(self):
+        self.generate_calls = []
+
     def generate(self, **kwargs):
+        self.generate_calls.append(kwargs)
         value = 0.2 if kwargs.get("temperature") == 0.7 else 0.1
         yield _Chunk(value)
         if kwargs.get("stream"):
@@ -66,9 +70,10 @@ def test_waveform_diagnostics_detects_repeated_tail_and_stream_jump():
 
 
 def test_full_benchmark_emits_complete_fail_closed_bundle(tmp_path, monkeypatch):
+    model = _Model()
     monkeypatch.setattr(benchmark, "_mlx_core", lambda: _FakeMX)
     monkeypatch.setattr(benchmark, "_resolve_model_path", lambda _: tmp_path / "model")
-    monkeypatch.setattr(benchmark, "_load_model", lambda _: _Model())
+    monkeypatch.setattr(benchmark, "_load_model", lambda _: model)
     monkeypatch.setattr(
         benchmark, "_probe_http", lambda model, seed: {"status": "pass"}
     )
@@ -84,9 +89,12 @@ def test_full_benchmark_emits_complete_fail_closed_bundle(tmp_path, monkeypatch)
         ref_text_en="Exact English transcript.",
         ref_audio_zh="zh.wav",
         ref_text_zh="精确的中文转写。",
+        fast_depth=True,
         invoked_via_cli=True,
     )
     report = json.loads(summary_path.read_text())
+    assert report["runtime_options"] == {"fast_depth": True}
+    assert all(call["fast_depth"] is True for call in model.generate_calls)
     assert report["matrix_coverage"]["pass"] is True
     assert len(report["samples"]) == 23
     assert all(sample["samples"] > 0 for sample in report["samples"])

@@ -44,6 +44,13 @@ def test_generate_cli_defaults_match_approved_spec():
     assert args.stream is True
     assert args.fast_depth is False
 
+    benchmark = _parser().parse_args(["benchmark", "--output", "reports/test"])
+    assert benchmark.fast_depth is False
+    benchmark_fast = _parser().parse_args(
+        ["benchmark", "--output", "reports/test", "--fast-depth"]
+    )
+    assert benchmark_fast.fast_depth is True
+
 
 def test_release_review_validator_cli_surface():
     args = _parser().parse_args(
