@@ -11,7 +11,7 @@ from mlx_breeze_tts.objective import (
     objective_template,
     reference_leakage_similarity,
 )
-from mlx_breeze_tts.objective_runner import evaluate_objective_metrics
+from mlx_breeze_tts.objective_runner import _language, evaluate_objective_metrics
 
 
 def test_text_metrics_strip_events_and_match_skill_leakage_semantics():
@@ -75,7 +75,7 @@ def test_template_resolves_audio_and_objective_merge_aggregates(tmp_path):
     assert validation["objective_metrics"] == "complete"
 
 
-def test_cer_gate_excludes_events_and_exploratory_cross_language(tmp_path):
+def test_cer_gate_excludes_events_but_includes_cross_language(tmp_path):
     summary = tmp_path / "summary.json"
     summary.write_text(
         json.dumps(
@@ -117,12 +117,14 @@ def test_cer_gate_excludes_events_and_exploratory_cross_language(tmp_path):
 
     output = apply_objective_metrics(summary, metrics, tmp_path / "output.json")
     validation = json.loads(output.read_text())["validation"]
-    assert validation["max_cer"] == 0.0
-    assert validation["corpus_cer"] == 0.0
-    assert (
-        validation["cer_scope"]
-        == "standard_content_excluding_events_and_cross_language"
-    )
+    assert validation["max_cer"] > 0.0
+    assert validation["corpus_cer"] > 0.0
+    assert validation["cer_scope"] == "linguistic_content_excluding_events"
+
+
+def test_cross_language_asr_uses_target_language():
+    assert _language({"capability": "cross_clone_zh_to_en"}) == "en"
+    assert _language({"capability": "cross_clone_en_to_zh"}) == "zh"
 
 
 def test_missing_or_invalid_metrics_fail_closed(tmp_path):

@@ -67,12 +67,14 @@ def _valid_executable(candidates: tuple[Path, ...]) -> Path | None:
 
 def _language(row: dict[str, Any]) -> str:
     capability = str(row.get("capability") or "").lower()
-    if capability.endswith("_zh") or "_zh_" in capability:
+    if capability.endswith("_zh"):
         return "zh"
-    if capability.endswith("_en") or "_en_" in capability:
+    if capability.endswith("_en"):
         return "en"
     text = str(row.get("expected_text") or "")
-    return "zh" if any("\u4e00" <= character <= "\u9fff" for character in text) else "en"
+    return (
+        "zh" if any("\u4e00" <= character <= "\u9fff" for character in text) else "en"
+    )
 
 
 def _parse_asr_output(directory: Path, stdout: str) -> str:
@@ -114,7 +116,9 @@ def _run_asr(
             "--language",
             _language(row),
         ]
-        result = run(command, text=True, capture_output=True, timeout=timeout, check=False)
+        result = run(
+            command, text=True, capture_output=True, timeout=timeout, check=False
+        )
         if result.returncode:
             detail = (result.stderr or result.stdout or "").strip()[:1000]
             raise RuntimeError(f"ASR exited {result.returncode}: {detail}")
@@ -221,7 +225,9 @@ def evaluate_objective_metrics(
     if model is None or not model.is_dir():
         raise RuntimeError(f"No cached weights found for {WHISPER_MODEL_ID}")
     if python is None:
-        raise RuntimeError("No Python environment with the ECAPA dependencies was found")
+        raise RuntimeError(
+            "No Python environment with the ECAPA dependencies was found"
+        )
     if speaker_device not in {"auto", "cpu", "mps"}:
         raise ValueError("speaker_device must be auto, cpu, or mps")
 
@@ -230,7 +236,9 @@ def evaluate_objective_metrics(
         capability = str(row.get("capability") or "unknown")
         audio = Path(str(row.get("audio") or "")).expanduser().resolve()
         if not audio.is_file():
-            failures.append({"capability": capability, "metric": "audio", "error": "missing audio"})
+            failures.append(
+                {"capability": capability, "metric": "audio", "error": "missing audio"}
+            )
             continue
         row["audio_sha256"] = _sha256(audio)
         try:
@@ -246,7 +254,9 @@ def evaluate_objective_metrics(
             row["asr_error"] = None
         except Exception as exc:
             row["asr_error"] = str(exc)
-            failures.append({"capability": capability, "metric": "asr", "error": str(exc)})
+            failures.append(
+                {"capability": capability, "metric": "asr", "error": str(exc)}
+            )
 
         reference = str(row.get("reference_audio") or "").strip()
         if not reference:
@@ -255,7 +265,9 @@ def evaluate_objective_metrics(
         if not reference_path.is_file():
             error = "missing reference audio"
             row["speaker_error"] = error
-            failures.append({"capability": capability, "metric": "speaker", "error": error})
+            failures.append(
+                {"capability": capability, "metric": "speaker", "error": error}
+            )
             continue
         row["reference_audio_sha256"] = _sha256(reference_path)
         try:
@@ -271,7 +283,9 @@ def evaluate_objective_metrics(
             row["speaker_error"] = None
         except Exception as exc:
             row["speaker_error"] = str(exc)
-            failures.append({"capability": capability, "metric": "speaker", "error": str(exc)})
+            failures.append(
+                {"capability": capability, "metric": "speaker", "error": str(exc)}
+            )
 
     document["evaluation"] = {
         "status": "complete" if not failures else "partial",

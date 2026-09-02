@@ -23,9 +23,9 @@ _REFERENCE_CAPABILITIES = {
 
 
 def _is_standard_content(capability: str) -> bool:
-    """Exclude non-verbal events and exploratory cross-language cases from CER gate."""
+    """Exclude non-verbal events from the linguistic-content CER gate."""
 
-    return not capability.startswith(("event_", "cross_clone_"))
+    return not capability.startswith("event_")
 
 
 def normalize_text(text: str, *, strip_events: bool = False) -> str:
@@ -209,7 +209,7 @@ def apply_objective_metrics(
             else None,
             "corpus_cer_edits": corpus_edits if not missing_asr else None,
             "corpus_cer_characters": corpus_characters if not missing_asr else None,
-            "cer_scope": "standard_content_excluding_events_and_cross_language",
+            "cer_scope": "linguistic_content_excluding_events",
             "clone_cosine_min": min(
                 (sample["speaker_cosine"] for sample in referenced), default=None
             )
