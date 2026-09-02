@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "created_at": "2026-09-02T19:29:47+08:00",
+  "runtime_commit": "37e57cc",
+  "status": "pending",
+  "hardware": {
+    "model": "MacBook Pro (Mac15,8)",
+    "chip": "Apple M3 Max",
+    "cpu_cores": 16,
+    "gpu_cores": 40,
+    "memory_gb": 128,
+    "system_metal_support": true
+  },
+  "execution_environment": {
+    "mlx_metal_available": false,
+    "error": "ImportError: [metal::load_device] No Metal device available. This typically occurs in headless, sandboxed, or virtualized macOS sessions where the GPU is not accessible."
+  },
+  "pending_checks": [
+    "focused eager-versus-fast 8-bit RTF comparison",
+    "fast-path deterministic token and waveform comparison",
+    "23-case fast-path capability matrix",
+    "objective quality, PyTorch parity, and manual listening gates"
+  ]
+}
