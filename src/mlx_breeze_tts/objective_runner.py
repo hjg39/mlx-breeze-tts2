@@ -216,7 +216,7 @@ def evaluate_objective_metrics(
         else _cached_snapshot(WHISPER_MODEL_ID)
     )
     python = (
-        Path(speaker_python).expanduser().resolve()
+        Path(speaker_python).expanduser().absolute()
         if speaker_python
         else _valid_executable(_SPEAKER_PYTHONS)
     )

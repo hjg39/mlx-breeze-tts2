@@ -226,6 +226,75 @@ def test_evaluator_fills_metrics_and_records_provenance(tmp_path):
     assert document["evaluation"]["asr_model_revision"] == "whisper-snapshot"
 
 
+def test_evaluator_preserves_virtualenv_python_symlink(tmp_path):
+    audio = tmp_path / "design.wav"
+    audio.write_bytes(b"audio")
+    reference = tmp_path / "reference.wav"
+    reference.write_bytes(b"reference")
+    model = tmp_path / "snapshot"
+    model.mkdir()
+    (model / "weights.safetensors").write_bytes(b"weights")
+    executable = tmp_path / "mlx_whisper"
+    executable.write_text("#!/bin/sh\n")
+    executable.chmod(0o755)
+    interpreter = tmp_path / "python-target"
+    interpreter.write_text("#!/bin/sh\n")
+    interpreter.chmod(0o755)
+    venv_python = tmp_path / "venv-python"
+    venv_python.symlink_to(interpreter)
+    metrics = tmp_path / "metrics.json"
+    metrics.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "rows": [
+                    {
+                        "capability": "voice_clone_en",
+                        "audio": str(audio),
+                        "reference_audio": str(reference),
+                        "expected_text": "Target sentence.",
+                    }
+                ],
+            }
+        )
+    )
+    commands = []
+
+    def fake_run(command, **_kwargs):
+        commands.append(command)
+        if "--output-dir" in command:
+            output = command[command.index("--output-dir") + 1]
+            Path(output, "result.json").write_text(
+                json.dumps({"text": "Target sentence"})
+            )
+            return subprocess.CompletedProcess(command, 0, "", "")
+        payload = {
+            "cosine": 0.8,
+            "p10_cosine": 0.7,
+            "backend": "speechbrain_ecapa_voxceleb",
+            "model_id": "speechbrain/spkrec-ecapa-voxceleb",
+            "model_artifact_sha256": "a" * 64,
+            "device": "cpu",
+            "generated_segments": 2,
+            "reference_segments": 2,
+            "reference_consistency": 0.9,
+        }
+        return subprocess.CompletedProcess(command, 0, json.dumps(payload), "")
+
+    _, complete = evaluate_objective_metrics(
+        metrics,
+        tmp_path / "evaluated.json",
+        whisper_executable=executable,
+        whisper_model=model,
+        speaker_python=venv_python,
+        run=fake_run,
+    )
+
+    assert complete
+    assert commands[1][0] == str(venv_python.absolute())
+    assert commands[1][0] != str(interpreter.resolve())
+
+
 def test_evaluator_retains_failures_and_fails_closed(tmp_path):
     audio = tmp_path / "design.wav"
     audio.write_bytes(b"audio")
