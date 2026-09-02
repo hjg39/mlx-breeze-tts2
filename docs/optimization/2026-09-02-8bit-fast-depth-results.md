@@ -2,10 +2,10 @@
 
 ## Status
 
-Automated acceptance is `pass`; release/default promotion is `pending` only on
-the eight-event listening review for newly generated fast-path audio.
+Automated acceptance, the revision-bound eight-event listening review, and
+default promotion are `pass`.
 
-- Runtime commit: `e40bbfbf55675da56945e82178c6a81c5bb62cce`
+- Default-promotion commit: `91c6bde45f00e1319a355a2930e6ec65902c728d`
 - Model: `models/breeze-8bit-sensitive-bf16-v2`
 - Upstream revision: `c1c8ca18b70b30822735633991d9ebf4898e47d4`
 - MLX: `0.32.2`
@@ -27,15 +27,15 @@ the eight-event listening review for newly generated fast-path audio.
 
 ## Performance evidence
 
-Authoritative final run:
-`reports/optimization/8bit-fast-depth/run-e40bbfb-fast/`.
+Authoritative final default run:
+`reports/optimization/8bit-fast-depth/run-91c6bde-default/`.
 
 | Measurement | Median | P90 | Target | Result |
 |---|---:|---:|---:|---|
-| Ordinary steady-state RTF | 1.026 | 1.027 | <= 2.0 | pass |
-| Voice-design CFG=4 RTF | 1.321 | 1.323 | <= 4.0 | pass |
-| Eager streaming TTFA | 2.314 s | n/a | reference | pass |
-| Fast streaming TTFA | 1.106 s | n/a | <= 10% regression | pass (-52.2%) |
+| Ordinary steady-state RTF | 1.148 | 1.162 | <= 2.0 | pass |
+| Voice-design CFG=4 RTF | 1.534 | 1.566 | <= 4.0 | pass |
+| Eager streaming TTFA | 2.866 s | n/a | reference | pass |
+| Fast streaming TTFA | 1.304 s | n/a | <= 10% regression | pass (-54.5%) |
 
 Both five-run RTF groups and both five-run TTFA groups are fixed-seed
 reproducible. Focused peak memory is `8.683 GB` for ordinary generation and
@@ -50,14 +50,14 @@ The full matrix peak was `10.820 GB`, versus `10.954 GB` in the prior verified
 
 ## Functional and quality evidence
 
-Full matrix directory:
-`reports/optimization/8bit-fast-depth/full-matrix-2d698df/`.
+Final full matrix directory:
+`reports/optimization/8bit-fast-depth/full-matrix-ecb2c39-events-fixed/`.
 
 - 23/23 cases generated on Metal; matrix coverage has no missing or duplicate
   required capability.
 - Python, CLI, HTTP, non-streaming, streaming, cancellation, sampling control,
   deterministic seed, and waveform-integrity checks: `pass`.
-- Objective metrics: max CER `0.030303`, corpus CER `0.001488`, clone cosine
+- Objective metrics: max CER `0.030303`, corpus CER `0.001344`, clone cosine
   minimum `0.641503`, clone P10 minimum `0.623924`, leakage maximum `0.169492`.
 - Objective backend: `mlx-community/whisper-large-v3-turbo` revision
   `a4aaeec0636e6fef84abdcbe3544cb2bf7e9f6fb` plus SpeechBrain ECAPA.
@@ -65,21 +65,25 @@ Full matrix directory:
   `reports/parity/comparison-8bit-fast-2d698df.json`, status `pass`, `atol=0.05`,
   `rtol=0.05`. Template, IDs, reference codec codes, masks, shapes,
   deterministic tokens, and all intermediate tensors pass.
-- Unit/integration suite: `141 passed`; focused Ruff fatal checks and formatting:
+- Unit/integration suite: `143 passed`; focused Ruff fatal checks and formatting:
   `pass`.
 
 Fast and eager real-model waveforms are not bit-exact because cached attention
 changes legal floating-point evaluation order and therefore stochastic token
-selection. The fast output is separately deterministic and has passed the full
-objective, waveform, interface, feature, and PyTorch parity gates. The remaining
-manual gate must use the new `events.html`; prior eager listening evidence is not
-reused.
+selection. The fast output is separately deterministic and passed the full
+objective, waveform, interface, feature, PyTorch parity, and new-audio listening
+gates.
 
-## Remaining gate
+## Listening and default-promotion result
 
-Open
-`reports/optimization/8bit-fast-depth/full-matrix-2d698df/events.html`, review
-all eight English/Chinese laugh, cough, throat-clear, and sigh samples, export
-the revision-bound review JSON, and apply it to `summary.parity.json`. Only then
-may `fast_depth` become the default across Python, CLI, server, and benchmark
-surfaces.
+The user confirmed all eight final English/Chinese laugh, cough, throat-clear,
+and sigh samples. Three stochastic test trajectories were stabilized from that
+review: English cough seed `7`, English sigh seed `3`, and Chinese throat-clear
+seed `1`. `manual_reviews.json` validates in release mode and is applied to
+`summary.final.json`.
+
+`fast_depth=True` is now the default across Model, Engine, generation CLI,
+benchmark CLI, and HTTP. The eager compatibility path remains available via
+`fast_depth=False`, `--no-fast-depth`, or HTTP `fast_depth=false`. A real-model
+default-surface check proves omitted/default and explicit-fast outputs have the
+same fixed-seed hash while explicit eager generation remains functional.

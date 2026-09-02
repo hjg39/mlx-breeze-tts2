@@ -92,17 +92,18 @@ result = next(
 write_audio("output.wav", result.audio, result.sample_rate)
 ```
 
-## Verified 8-bit fast depth candidate
+## Verified 8-bit fast depth default
 
-The 8-bit runtime includes an opt-in incremental depth-decoder path. It keeps
+The 8-bit runtime uses an incremental depth-decoder path by default. It keeps
 dependent codebook tokens on the MLX device, batches conditional and
 unconditional depth CFG, and compiles one exact-size incremental KV-cache graph
 per frame instead of recomputing the complete depth prefix. The compatible eager
-path remains the default until the new fast-path listening review is complete.
+path remains available explicitly.
 
-Use `--fast-depth` for a candidate generation or `--no-fast-depth` to select the
-eager reference explicitly. Compare both paths with cold/warm scope and fixed-seed
-hashes recorded in JSON:
+Generation, benchmark, Engine, and HTTP surfaces default to fast depth. Use
+`--no-fast-depth`, `fast_depth=False`, or HTTP form field `fast_depth=false` to
+select the eager compatibility path. Compare both paths with cold/warm scope and
+fixed-seed hashes recorded in JSON:
 
 ```bash
 PYTHONPATH=src .venv/bin/python scripts/benchmark_8bit_speed.py \
@@ -118,32 +119,29 @@ five-run TTFA comparison, plus a separate synchronization-based stage profile.
 The profiled run is excluded from speed acceptance so its diagnostic barriers
 cannot make the RTF result look faster or slower.
 
-The final M3 Max run at runtime commit `e40bbfb` passed with the following warmed
+The final M3 Max run at runtime commit `91c6bde` passed with the following warmed
 medians. These numbers exclude model loading and WAV writing:
 
 | Gate | Eager/reference | Fast | Required | Result |
 |---|---:|---:|---:|---|
-| Ordinary steady-state RTF | 2.713 release baseline | 1.026 | <= 2.0 | pass |
-| Voice-design CFG=4 RTF | 5.8-5.9 release baseline | 1.321 | <= 4.0 | pass |
-| Streaming TTFA | 2.314 s paired median | 1.106 s | <= 10% regression | pass (-52.2%) |
+| Ordinary steady-state RTF | 2.713 release baseline | 1.148 | <= 2.0 | pass |
+| Voice-design CFG=4 RTF | 5.8-5.9 release baseline | 1.534 | <= 4.0 | pass |
+| Streaming TTFA | 2.866 s paired median | 1.304 s | <= 10% regression | pass (-54.5%) |
 
-The complete fast-path matrix generated all 23 cases and passed Python, CLI,
+The final fast-path matrix generated all 23 cases and passed Python, CLI,
 HTTP, streaming, cancellation, sampling, seed, and waveform checks. Objective
 evaluation measured max CER `0.0303`, clone cosine/P10 minima `0.6415`/`0.6239`,
-and max reference leakage `0.1695`; precision-specific PyTorch parity also
-passed. Peak matrix memory was `10.82 GB`, below the prior 8-bit matrix's
-`10.95 GB`. The evidence index and known thermal-order caveat are recorded in
+and max reference leakage `0.1695`; precision-specific PyTorch parity and the
+revision-bound eight-event listening review also passed. The evidence index and
+known thermal-order caveat are recorded in
 [`docs/optimization/2026-09-02-8bit-fast-depth-results.md`](docs/optimization/2026-09-02-8bit-fast-depth-results.md).
 
-The candidate is not considered accepted until the report reaches steady-state
-RTF `<= 2.0`, CFG-4 RTF `<= 4.0`, and the existing parity, objective-quality,
-waveform, streaming, interface, event, and listening gates remain passing.
-Fast/eager hashes are recorded as a diagnostic. A non-bit-exact result requires
-the full quality review but does not redefine or fail the separate speed metric.
-After the focused speed run passes, rerun the complete 23-case matrix
-with `benchmark --fast-depth`; its `summary.json` records the selected runtime
-path under `runtime_options.fast_depth`. The default matrix remains eager until
-the candidate clears every gate.
+Fast/eager hashes are recorded as a diagnostic. The fast result is not bit-exact
+because cached attention changes legal floating-point evaluation order, so it was
+accepted through independent objective, parity, waveform, interface, and manual
+listening gates rather than waveform equality. The final evidence is under
+`reports/optimization/8bit-fast-depth/full-matrix-ecb2c39-events-fixed/` and
+`reports/optimization/8bit-fast-depth/run-91c6bde-default/`.
 
 ## Conversion
 
@@ -316,7 +314,8 @@ verdict for every event. It refuses to overwrite any existing review, reviewed
 summary, selection report, or final summary. Quantization comparison treats
 missing evidence as `pending`, never as a reason to reject a candidate. The
 full-quantization candidates have separate hash-bound terminal parity failures;
-the sensitive-BF16 candidates still require the exported listening verdicts.
+the selected sensitive-BF16 releases use the checked-in exported listening
+verdicts.
 
 If a benchmark predates an HTTP fix, capture and merge a revision-bound real
 probe without rerunning the 23 audio cases:

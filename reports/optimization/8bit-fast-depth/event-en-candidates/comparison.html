@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>英文咳嗽与叹气事件候选对比</title>
+  <style>
+    :root { color-scheme: dark; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    body { max-width: 940px; margin: 0 auto; padding: 32px 20px 64px; background: #111318; color: #f3f4f6; }
+    h1 { font-size: 28px; margin-bottom: 8px; }
+    h2 { margin-top: 36px; border-bottom: 1px solid #343b48; padding-bottom: 10px; }
+    .note { color: #b6bdc9; line-height: 1.6; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; }
+    .card { background: #1b1f27; border: 1px solid #343b48; border-radius: 14px; padding: 18px; }
+    .reference { border-color: #3f7f5a; }
+    .failed { border-color: #a14b4b; }
+    h3 { margin: 0 0 8px; font-size: 17px; }
+    p { color: #cbd1db; margin: 6px 0 12px; }
+    audio { width: 100%; }
+  </style>
+</head>
+<body>
+  <h1>英文事件候选对比</h1>
+  <p class="note">咳嗽重点判断事件与正文是否自然连贯；叹气重点判断句首能否明确听出叹气。每组分别选择一个候选，也可以判定该组全部不合格。</p>
+
+  <h2>event_en_cough</h2>
+  <div class="grid">
+    <section class="card reference"><h3>咳嗽参考版（旧 8-bit）</h3><p>此前人工通过。</p><audio controls preload="metadata" src="../../../release-v2/8bit/event_en_cough.wav"></audio></section>
+    <section class="card failed"><h3>咳嗽当前问题样本</h3><p>seed 42；衔接效果差。</p><audio controls preload="metadata" src="../full-matrix-ce6d520-seedfix/event_en_cough.wav"></audio></section>
+    <section class="card"><h3>咳嗽候选 A</h3><p>seed 1；事件区约 0.74 秒。</p><audio controls preload="metadata" src="cough_seed_1.wav"></audio></section>
+    <section class="card"><h3>咳嗽候选 B</h3><p>seed 123；事件区约 0.66 秒。</p><audio controls preload="metadata" src="cough_seed_123.wav"></audio></section>
+    <section class="card"><h3>咳嗽候选 C</h3><p>seed 0；事件区约 1.20 秒。</p><audio controls preload="metadata" src="cough_seed_0.wav"></audio></section>
+    <section class="card"><h3>咳嗽候选 D</h3><p>seed 7；总长 4.08 秒、事件区约 1.32 秒，时间结构最接近参考版。</p><audio controls preload="metadata" src="cough_seed_7.wav"></audio></section>
+    <section class="card"><h3>咳嗽候选 E</h3><p>seed 12；总长 4.08 秒、事件区约 1.50 秒。</p><audio controls preload="metadata" src="cough_seed_12.wav"></audio></section>
+  </div>
+
+  <h2>event_en_sigh</h2>
+  <div class="grid">
+    <section class="card reference"><h3>叹气参考版（旧 8-bit）</h3><p>此前人工通过。</p><audio controls preload="metadata" src="../../../release-v2/8bit/event_en_sigh.wav"></audio></section>
+    <section class="card failed"><h3>叹气当前问题样本</h3><p>seed 42；听不到明确叹气。</p><audio controls preload="metadata" src="../full-matrix-ce6d520-seedfix/event_en_sigh.wav"></audio></section>
+    <section class="card"><h3>叹气候选 A</h3><p>seed 1；事件区约 1.16 秒。</p><audio controls preload="metadata" src="sigh_seed_1.wav"></audio></section>
+    <section class="card"><h3>叹气候选 B</h3><p>seed 3；事件区约 1.22 秒。</p><audio controls preload="metadata" src="sigh_seed_3.wav"></audio></section>
+    <section class="card"><h3>叹气候选 C</h3><p>seed 7；事件区约 1.42 秒。</p><audio controls preload="metadata" src="sigh_seed_7.wav"></audio></section>
+    <section class="card"><h3>叹气候选 D</h3><p>seed 123；事件区约 1.90 秒。</p><audio controls preload="metadata" src="sigh_seed_123.wav"></audio></section>
+  </div>
+</body>
+</html>

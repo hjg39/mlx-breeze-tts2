@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "exported_at": "2026-09-02T14:16:46Z",
+  "model_revision": "c1c8ca18b70b30822735633991d9ebf4898e47d4",
+  "model_path": "/Users/vanch/mlx-breeze-tts2/models/breeze-8bit-sensitive-bf16-v2",
+  "review_source": "Explicit user statement in Codex thread: 参考版最好，然后是候选 B",
+  "reviews": [
+    {
+      "capability": "event_zh_clears_throat",
+      "manual_event": "audible",
+      "manual_notes": "User ranked the prior accepted reference first and fast-path candidate B (seed 1) second; candidate B was selected as the reproducible optimized-path replacement."
+    }
+  ]
+}

@@ -1,0 +1,109 @@
+{
+  "schema_version": 1,
+  "created_at": "2026-09-02T15:57:10Z",
+  "objective": "Optimize verified sensitive-BF16 8-bit MLX inference on M3 Max while preserving quality, PyTorch parity, streaming, events, interfaces, and all functions.",
+  "status": "pass",
+  "runtime_commit": "91c6bde45f00e1319a355a2930e6ec65902c728d",
+  "model_revision": "c1c8ca18b70b30822735633991d9ebf4898e47d4",
+  "requirements": [
+    {
+      "name": "ordinary_steady_state_rtf",
+      "required": "median <= 2.0",
+      "observed": 1.1481084449423222,
+      "p90": 1.1623755830355333,
+      "status": "pass"
+    },
+    {
+      "name": "voice_design_cfg4_rtf",
+      "required": "median <= 4.0",
+      "observed": 1.5344127602956552,
+      "p90": 1.5663843444759977,
+      "status": "pass"
+    },
+    {
+      "name": "streaming_ttfa",
+      "required": "fast regression <= 10% versus paired eager",
+      "eager_median_s": 2.8657772920269053,
+      "fast_median_s": 1.3042583749920595,
+      "regression_fraction": -0.5448849501945825,
+      "status": "pass"
+    },
+    {
+      "name": "functional_matrix",
+      "required": "23/23 cases; Python, CLI, HTTP, streaming, cancellation, sampling, seed, and waveform gates pass",
+      "observed": "23/23 generated; no missing or duplicate required capabilities",
+      "status": "pass"
+    },
+    {
+      "name": "objective_quality",
+      "required": "existing CER, speaker, leakage, and waveform thresholds",
+      "max_cer": 0.030303030303030304,
+      "corpus_cer": 0.0013440860215053765,
+      "clone_cosine_min": 0.6415034103393555,
+      "clone_p10_min": 0.6239241838455201,
+      "leakage_max": 0.1694915254237288,
+      "status": "pass"
+    },
+    {
+      "name": "pytorch_parity",
+      "required": "precision-specific parity at atol=0.05 and rtol=0.05",
+      "status": "pass"
+    },
+    {
+      "name": "event_listening",
+      "required": "all eight English/Chinese event samples audible",
+      "observed": "8/8 explicitly confirmed by user",
+      "status": "pass"
+    },
+    {
+      "name": "default_and_fallback_surfaces",
+      "required": "fast path is the default and eager remains available",
+      "observed": "default hash equals explicit-fast hash; explicit eager generated non-empty audio",
+      "status": "pass"
+    },
+    {
+      "name": "test_suite",
+      "required": "all project tests and focused lint/format gates pass",
+      "observed": "143 passed, 1 third-party deprecation warning; fatal lint and changed-file formatting pass",
+      "status": "pass"
+    },
+    {
+      "name": "package_build",
+      "required": "sdist and wheel build with optimized runtime modules",
+      "observed": "wheel 124668 bytes; sdist 591361 bytes; model.py and speed_reporting.py present in both",
+      "status": "pass"
+    }
+  ],
+  "evidence": {
+    "speed": {
+      "path": "reports/optimization/8bit-fast-depth/run-91c6bde-default/speed.json",
+      "sha256": "2e2392c72b7fdf019bbbb60c92f2d6131a24a97a17b4ec49c05afd19f94ffc07"
+    },
+    "default_surface": {
+      "path": "reports/optimization/8bit-fast-depth/run-91c6bde-default/default-surface.json",
+      "sha256": "ebaea031b91de7ec26dc14110d156dfb248c4710c07a8d678cbed6ee6926f124"
+    },
+    "final_matrix": {
+      "path": "reports/optimization/8bit-fast-depth/full-matrix-ecb2c39-events-fixed/summary.final.json",
+      "sha256": "1a6a01f72e3e7db5d402271dce1a90d7b406f76b01e09f02b12335939e446c1f"
+    },
+    "manual_review": {
+      "path": "reports/optimization/8bit-fast-depth/full-matrix-ecb2c39-events-fixed/manual_reviews.json",
+      "sha256": "9a71c8ec3c6eaae5076690686f668ee8718d37d798c6986af1e5fc58c1d1f347"
+    },
+    "parity": {
+      "path": "reports/parity/comparison-8bit-fast-2d698df.json",
+      "sha256": "fd41f2a6e8297676331bb806ea5431f214e9d137422c34f565749d2b1167dc97"
+    },
+    "documentation": [
+      "README.md",
+      "docs/optimization/2026-09-02-8bit-fast-depth-results.md",
+      ".ai_memory.md"
+    ]
+  },
+  "known_non_blocking": [
+    "Fast and eager stochastic waveforms are deterministic within each path but not bit-exact across paths.",
+    "The full manual_content review remains partial; the required eight-event listening review is complete and release-valid.",
+    "The test suite emits one Starlette/httpx deprecation warning from third-party compatibility code."
+  ]
+}

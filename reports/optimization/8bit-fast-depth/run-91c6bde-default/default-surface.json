@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "model": "/Users/vanch/mlx-breeze-tts2/models/breeze-8bit-sensitive-bf16-v2",
+  "seed": 314159,
+  "results": {
+    "default": {
+      "sha256": "13e109a2a1f64d9c85f115627a529685c9a046353dc0e4103ea86c1849f03005",
+      "samples": 63360,
+      "duration_s": 2.64,
+      "elapsed_s": 2.9199200000148267
+    },
+    "explicit_fast": {
+      "sha256": "13e109a2a1f64d9c85f115627a529685c9a046353dc0e4103ea86c1849f03005",
+      "samples": 63360,
+      "duration_s": 2.64,
+      "elapsed_s": 2.762720625003567
+    },
+    "explicit_eager": {
+      "sha256": "0d97f3c90b05eac422bfe181599b026da7206c16beaaf847c61b1a7b259c006e",
+      "samples": 71040,
+      "duration_s": 2.96,
+      "elapsed_s": 6.700305000005756
+    }
+  },
+  "default_matches_explicit_fast": true,
+  "eager_generated": true,
+  "pass": true
+}

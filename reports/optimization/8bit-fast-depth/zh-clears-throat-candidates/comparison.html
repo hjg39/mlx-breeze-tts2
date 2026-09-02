@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>中文清嗓子事件候选对比</title>
+  <style>
+    :root { color-scheme: dark; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    body { max-width: 900px; margin: 0 auto; padding: 32px 20px 64px; background: #111318; color: #f3f4f6; }
+    h1 { font-size: 28px; margin-bottom: 8px; }
+    .note { color: #b6bdc9; line-height: 1.6; margin-bottom: 24px; }
+    .card { background: #1b1f27; border: 1px solid #343b48; border-radius: 14px; padding: 18px; margin: 14px 0; }
+    .reference { border-color: #3f7f5a; }
+    .failed { border-color: #a14b4b; }
+    h2 { margin: 0 0 8px; font-size: 18px; }
+    p { color: #cbd1db; margin: 6px 0 12px; }
+    audio { width: 100%; }
+    code { color: #9fd3ff; }
+  </style>
+</head>
+<body>
+  <h1>“[清嗓子] 请大家注意。”候选对比</h1>
+  <p class="note">请重点判断句首事件是否像自然清嗓子，而不是咳嗽、杂音或停顿；同时确认正文清晰完整。回复“参考版 / A / B / C 最好”，也可以全部判定不合格。</p>
+
+  <section class="card reference">
+    <h2>参考版（旧 8-bit，之前已通过）</h2>
+    <p>2.48 秒，用于确认目标听感。</p>
+    <audio controls preload="metadata" src="../../../release-v2/8bit/event_zh_clears_throat.wav"></audio>
+  </section>
+
+  <section class="card failed">
+    <h2>当前问题样本</h2>
+    <p>1.92 秒，fast seed 42；已由用户判定效果不好。</p>
+    <audio controls preload="metadata" src="../full-matrix-2d698df/event_zh_clears_throat.wav"></audio>
+  </section>
+
+  <section class="card">
+    <h2>候选 A</h2>
+    <p>5.28 秒；正文从约 1.96 秒开始，句首事件区最长。</p>
+    <audio controls preload="metadata" src="matrix_seed_21.wav"></audio>
+  </section>
+
+  <section class="card">
+    <h2>候选 B</h2>
+    <p>2.24 秒；ASR 听到句首“咳”，正文完整。</p>
+    <audio controls preload="metadata" src="matrix_seed_1.wav"></audio>
+  </section>
+
+  <section class="card">
+    <h2>候选 C</h2>
+    <p>2.32 秒；ASR 听到句首“咳咳”，正文完整。</p>
+    <audio controls preload="metadata" src="matrix_seed_123.wav"></audio>
+  </section>
+</body>
+</html>

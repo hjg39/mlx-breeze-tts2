@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "exported_at": "2026-09-02T15:29:01Z",
+  "model_revision": "c1c8ca18b70b30822735633991d9ebf4898e47d4",
+  "model_path": "/Users/vanch/mlx-breeze-tts2/models/breeze-8bit-sensitive-bf16-v2",
+  "review_source": "Explicit user statement in Codex thread: 8 段全部通过",
+  "reviews": [
+    {
+      "capability": "event_en_laugh",
+      "manual_event": "audible",
+      "manual_notes": "User confirmed the final eight-event batch passed."
+    },
+    {
+      "capability": "event_en_cough",
+      "manual_event": "audible",
+      "manual_notes": "User selected candidate D (seed 7), then confirmed the final batch passed."
+    },
+    {
+      "capability": "event_en_clears_throat",
+      "manual_event": "audible",
+      "manual_notes": "User confirmed the final eight-event batch passed."
+    },
+    {
+      "capability": "event_en_sigh",
+      "manual_event": "audible",
+      "manual_notes": "User selected candidate B (seed 3), then confirmed the final batch passed."
+    },
+    {
+      "capability": "event_zh_laugh",
+      "manual_event": "audible",
+      "manual_notes": "User confirmed the final eight-event batch passed."
+    },
+    {
+      "capability": "event_zh_cough",
+      "manual_event": "audible",
+      "manual_notes": "User confirmed the final eight-event batch passed."
+    },
+    {
+      "capability": "event_zh_clears_throat",
+      "manual_event": "audible",
+      "manual_notes": "User selected candidate B (seed 1), then confirmed the final batch passed."
+    },
+    {
+      "capability": "event_zh_sigh",
+      "manual_event": "audible",
+      "manual_notes": "User confirmed the final eight-event batch passed."
+    }
+  ]
+}
