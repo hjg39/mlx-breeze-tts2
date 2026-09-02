@@ -170,13 +170,7 @@ class _Backbone(nn.Module):
         return self.norm(hidden)
 
     def make_cache(self) -> list[KVCache]:
-        caches = [KVCache() for _ in self.layers]
-        for cache in caches:
-            # Depth sequences are exactly one frame wide (16 positions for the
-            # released model); the general 256-token growth block wastes memory
-            # and allocation bandwidth when a fresh cache is made per frame.
-            cache.step = self.num_codebooks
-        return caches
+        return [KVCache() for _ in self.layers]
 
 
 class _TextEmbedding(nn.Module):
@@ -519,7 +513,13 @@ class _DepthModel(nn.Module):
         self.norm = nn.RMSNorm(self.hidden_size, eps=args.rms_norm_eps)
 
     def make_cache(self) -> list[KVCache]:
-        return [KVCache() for _ in self.layers]
+        caches = [KVCache() for _ in self.layers]
+        for cache in caches:
+            # Depth sequences are exactly one frame wide (16 positions for the
+            # released model); the general 256-token growth block wastes memory
+            # and allocation bandwidth when a fresh cache is made per frame.
+            cache.step = self.num_codebooks
+        return caches
 
     def _forward_embeddings(
         self, embeds: mx.array, cache: Optional[list[KVCache]] = None

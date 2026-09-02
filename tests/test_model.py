@@ -242,6 +242,7 @@ def test_depth_array_keeps_sampled_tokens_on_device(monkeypatch):
 @pytest.mark.parametrize("use_cfg", [False, True])
 def test_cached_depth_matches_full_depth_for_deterministic_sampling(use_cfg):
     model = Model(tiny_config())
+    assert model.backbone_model.make_cache()[0].step > model.num_codebooks
     assert model.depth_decoder.model.make_cache()[0].step == model.num_codebooks
     conditional = mx.ones((1, 16))
     unconditional = mx.zeros((1, 16)) if use_cfg else None
