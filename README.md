@@ -120,6 +120,8 @@ slower.
 The candidate is not considered accepted until the report reaches steady-state
 RTF `<= 2.0`, CFG-4 RTF `<= 4.0`, and the existing parity, objective-quality,
 waveform, streaming, interface, event, and listening gates remain passing.
+Fast/eager hashes are recorded as a diagnostic. A non-bit-exact result requires
+the full quality review but does not redefine or fail the separate speed metric.
 After the focused speed comparison passes, rerun the complete 23-case matrix
 with `benchmark --fast-depth`; its `summary.json` records the selected runtime
 path under `runtime_options.fast_depth`. The default matrix remains eager until

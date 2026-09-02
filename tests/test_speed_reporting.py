@@ -62,6 +62,7 @@ def test_markdown_keeps_release_acceptance_pending():
             "speed_targets": True,
             "fixed_seed_reproducibility": True,
             "fast_eager_exact_match": True,
+            "quality_review_required": False,
         },
         "pending_release_gates": ["manual listening review"],
     }

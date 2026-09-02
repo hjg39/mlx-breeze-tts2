@@ -91,6 +91,7 @@ def render_speed_markdown(report: dict) -> str:
             f"- Speed targets: `{validation['speed_targets']}`",
             f"- Fixed-seed reproducibility: `{validation['fixed_seed_reproducibility']}`",
             f"- Fast/eager exact waveform match: `{validation['fast_eager_exact_match']}`",
+            f"- Additional quality review required: `{validation['quality_review_required']}`",
             "",
             "## Pending release gates",
             "",
