@@ -152,7 +152,7 @@ def run_benchmark(
     ref_audio_zh: str | None = None,
     ref_text_zh: str | None = None,
     seed: int = 42,
-    fast_depth: bool = False,
+    fast_depth: bool = True,
     invoked_via_cli: bool = False,
     probe_http: bool = True,
 ) -> Path:

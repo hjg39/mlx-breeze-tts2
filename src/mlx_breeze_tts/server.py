@@ -100,6 +100,7 @@ def create_app(
         ref_audio: UploadFile | None = File(None),
         ref_text: str = Form(""),
         seed: int = Form(42),
+        fast_depth: bool = Form(True),
     ):
         ref_text = ref_text.strip()
         has_reference = ref_audio is not None and bool(ref_audio.filename)
@@ -137,6 +138,7 @@ def create_app(
                         seed=seed,
                         max_tokens=1500,
                         stream=True,
+                        fast_depth=fast_depth,
                     )
                     first_result = next(active_generator, None)
                     return (

@@ -1275,7 +1275,7 @@ class Model(nn.Module):
         seed: Optional[int] = 42,
         stream: bool = False,
         streaming_interval: float = 2.0,
-        fast_depth: bool = False,
+        fast_depth: bool = True,
         _stage_profile: Optional[dict[str, Any]] = None,
         **_: object,
     ) -> Generator[GenerationResult, None, None]:

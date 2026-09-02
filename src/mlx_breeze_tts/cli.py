@@ -33,7 +33,7 @@ def _parser() -> argparse.ArgumentParser:
     )
     generate.add_argument("--streaming-interval", type=float, default=2.0)
     generate.add_argument(
-        "--fast-depth", action=argparse.BooleanOptionalAction, default=False
+        "--fast-depth", action=argparse.BooleanOptionalAction, default=True
     )
     generate.add_argument("--output", type=Path, default=Path("output.wav"))
 
@@ -79,7 +79,7 @@ def _parser() -> argparse.ArgumentParser:
     benchmark.add_argument("--ref-text-zh")
     benchmark.add_argument("--seed", type=int, default=42)
     benchmark.add_argument(
-        "--fast-depth", action=argparse.BooleanOptionalAction, default=False
+        "--fast-depth", action=argparse.BooleanOptionalAction, default=True
     )
     benchmark.add_argument("--skip-http-probe", action="store_true")
 

@@ -41,7 +41,7 @@ class BreezeEngine:
         max_new_tokens: int = 1500,
         stream: bool = False,
         streaming_interval: float = 2.0,
-        fast_depth: bool = False,
+        fast_depth: bool = True,
     ):
         return self.model.generate(
             text=text,

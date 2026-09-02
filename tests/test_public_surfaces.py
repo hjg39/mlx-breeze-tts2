@@ -1,4 +1,5 @@
 import os
+import inspect
 import subprocess
 import sys
 import threading
@@ -8,6 +9,8 @@ from types import SimpleNamespace
 import numpy as np
 
 from mlx_breeze_tts.cli import _parser
+from mlx_breeze_tts.engine import BreezeEngine
+from mlx_breeze_tts.model import Model
 from mlx_breeze_tts.server import create_app
 
 
@@ -42,14 +45,19 @@ def test_generate_cli_defaults_match_approved_spec():
     assert args.max_tokens == 1500
     assert args.instruction == "Speak clearly and naturally."
     assert args.stream is True
-    assert args.fast_depth is False
+    assert args.fast_depth is True
 
     benchmark = _parser().parse_args(["benchmark", "--output", "reports/test"])
-    assert benchmark.fast_depth is False
-    benchmark_fast = _parser().parse_args(
-        ["benchmark", "--output", "reports/test", "--fast-depth"]
+    assert benchmark.fast_depth is True
+    benchmark_eager = _parser().parse_args(
+        ["benchmark", "--output", "reports/test", "--no-fast-depth"]
     )
-    assert benchmark_fast.fast_depth is True
+    assert benchmark_eager.fast_depth is False
+    assert inspect.signature(Model.generate).parameters["fast_depth"].default is True
+    assert (
+        inspect.signature(BreezeEngine.generate).parameters["fast_depth"].default
+        is True
+    )
 
 
 def test_release_review_validator_cli_surface():
@@ -88,11 +96,12 @@ def test_http_health_and_pcm_contract():
 
     class FakeModel:
         def generate(self, **kwargs):
-            assert kwargs["text"] == "hello"
+            assert kwargs["text"] in {"hello", "eager"}
             assert kwargs["instruct"] == "Speak clearly and naturally."
             assert kwargs["cfg_scale"] == 1.0
             assert kwargs["seed"] == 42
             assert kwargs["stream"] is True
+            assert kwargs["fast_depth"] is (kwargs["text"] != "eager")
             assert kwargs["ref_text"] is None
             yield SimpleNamespace(audio=np.array([0.0, 0.5], dtype=np.float32))
             yield SimpleNamespace(audio=np.array([-0.5], dtype=np.float32))
@@ -103,7 +112,11 @@ def test_http_health_and_pcm_contract():
         assert health.json() == {"status": "ok", "sample_rate": 24000}
 
         response = client.post("/v1/audio/speech", data={"text": "hello"})
+        eager_response = client.post(
+            "/v1/audio/speech", data={"text": "eager", "fast_depth": "false"}
+        )
         assert response.status_code == 200
+        assert eager_response.status_code == 200
         assert response.headers["content-type"] == "audio/pcm"
         assert response.headers["x-sample-rate"] == "24000"
         assert response.headers["x-sample-format"] == "s16le"
