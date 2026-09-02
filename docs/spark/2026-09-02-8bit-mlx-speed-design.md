@@ -166,4 +166,3 @@ an optimization-specific evidence directory.
 - before/after M3 Max comparison for 8-bit
 - refreshed 8-bit release report and completion audit
 - README documentation of fast/eager behavior and measurement scope
-
