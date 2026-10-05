@@ -43,7 +43,19 @@ def create_app(
         worker_state.streams = [mx.new_stream(mx.cpu), mx.new_stream(mx.gpu)]
         for stream in worker_state.streams:
             mx.set_default_stream(stream)
+        # Cap the Metal allocator's free-block cache so idle memory cannot
+        # accumulate across requests (it otherwise grows to ~18 GB and the
+        # machine starts swapping).
+        try:
+            mx.metal.set_cache_limit(8 * 1024**3)
+        except Exception:  # pragma: no cover - very old mlx
+            pass
         worker_state.initialized = True
+
+    def release_worker_memory():
+        import mlx.core as mx
+
+        mx.clear_cache()
 
     def run_on_inference_worker(function, *args):
         initialize_worker_streams()
@@ -97,6 +109,7 @@ def create_app(
         text: str = Form(...),
         instruction: str = Form("Speak clearly and naturally."),
         cfg_scale: float = Form(1.0),
+        streaming_interval: float = Form(2.0),
         ref_audio: UploadFile | None = File(None),
         ref_text: str = Form(""),
         seed: int = Form(42),
@@ -138,6 +151,7 @@ def create_app(
                         seed=seed,
                         max_tokens=1500,
                         stream=True,
+                        streaming_interval=streaming_interval,
                         fast_depth=fast_depth,
                     )
                     first_result = next(active_generator, None)
@@ -165,12 +179,19 @@ def create_app(
                             break
                         yield chunk
                 finally:
-                    close = getattr(generator, "close", None)
-                    if close is not None:
-                        await inference_call(close)
-                    if temp_path is not None:
-                        temp_path.unlink(missing_ok=True)
-                    inference_lock.release()
+                    try:
+                        close = getattr(generator, "close", None)
+                        if close is not None:
+                            await inference_call(close)
+                    finally:
+                        try:
+                            if temp_path is not None:
+                                temp_path.unlink(missing_ok=True)
+                        finally:
+                            # Return the Metal allocator's free-block cache to
+                            # the OS so idle memory does not accumulate.
+                            await inference_call(release_worker_memory)
+                            inference_lock.release()
 
             return StreamingResponse(
                 stream_pcm(),
@@ -182,13 +203,18 @@ def create_app(
                 },
             )
         except BaseException:
-            if generator is not None:
-                close = getattr(generator, "close", None)
-                if close is not None:
-                    await inference_call(close)
-            if temp_path is not None:
-                temp_path.unlink(missing_ok=True)
-            inference_lock.release()
+            try:
+                if generator is not None:
+                    close = getattr(generator, "close", None)
+                    if close is not None:
+                        await inference_call(close)
+            finally:
+                try:
+                    if temp_path is not None:
+                        temp_path.unlink(missing_ok=True)
+                finally:
+                    inference_lock.release()
+                    await inference_call(release_worker_memory)
             raise
 
     return app
