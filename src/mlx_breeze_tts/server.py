@@ -4,6 +4,7 @@ import asyncio
 import logging
 import tempfile
 import threading
+import time
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager, suppress
 from pathlib import Path
@@ -13,6 +14,15 @@ import numpy as np
 DEFAULT_MODEL = "LunaFox/Breeze-TTS-2-mlx-4bit"
 
 LOGGER = logging.getLogger(__name__)
+
+# Self-healing inference-lock watchdog tuning. The lock is held for the whole
+# stream; if a request's stream is abandoned (the client disconnects mid-stream)
+# or a synthesis hangs, the lock can be left held and every later request 409s
+# ("another synthesis request is running") until a manual restart. The watchdog
+# force-releases it in those cases so the service recovers on its own.
+WATCHDOG_INTERVAL = 5.0
+MAX_SYNTH_SECONDS = 240.0  # one synthesis holding the lock longer than this is hung
+MAX_STREAM_SECONDS = 300.0  # a stream open longer than this is abandoned
 
 
 def create_app(
@@ -34,6 +44,22 @@ def create_app(
         )
     )
     worker_state = threading.local()
+    # The watchdog uses these to tell a healthy synthesis from a leaked lock.
+    worker_active = {"value": False}  # True while the worker is computing
+    worker_started = {"value": 0.0}  # monotonic time the current compute began
+    lock_owner: dict[str, object | None] = {"value": None}  # token (None = free)
+    stream_started: dict[str, float | None] = {"value": None}  # stream start time
+
+    def release_lock_safely(token=None):
+        # token=None forces the release (watchdog); a token releases only if that
+        # token still owns the lock (request cleanup). The release is synchronous
+        # (no await), so a task cancelled mid-stream cannot leak the lock.
+        if token is None or lock_owner["value"] is token:
+            if lock_owner["value"] is not None:
+                lock_owner["value"] = None
+                stream_started["value"] = None
+                with suppress(Exception):
+                    inference_lock.release()
 
     def initialize_worker_streams():
         if getattr(worker_state, "initialized", False):
@@ -59,7 +85,12 @@ def create_app(
 
     def run_on_inference_worker(function, *args):
         initialize_worker_streams()
-        return function(*args)
+        worker_active["value"] = True
+        worker_started["value"] = time.monotonic()
+        try:
+            return function(*args)
+        finally:
+            worker_active["value"] = False
 
     async def inference_call(function, *args):
         if inference_executor is None:
@@ -79,18 +110,55 @@ def create_app(
             state["status"] = "error"
             LOGGER.exception("Breeze model initialization failed")
 
+    async def lock_watchdog():
+        # Runs forever; the lifespan cancels it on shutdown. If the inference
+        # lock is held but the worker is idle (a leaked lock from an abandoned
+        # stream) or a synthesis has been running far too long (a hung compute),
+        # force-release it so the next request can proceed instead of 409ing
+        # forever. This is what makes the wedge self-healing.
+        while True:
+            await asyncio.sleep(WATCHDOG_INTERVAL)
+            if lock_owner["value"] is None:
+                continue
+            now = time.monotonic()
+            worker_hung = worker_active["value"] and (
+                now - worker_started["value"] > MAX_SYNTH_SECONDS
+            )
+            # A leaked lock: the worker is idle (not computing) yet the lock is
+            # held and the stream has been open far too long — the request's
+            # stream was abandoned and its cleanup never released the lock.
+            stream_abandoned = (
+                not worker_active["value"]
+                and stream_started["value"] is not None
+                and now - stream_started["value"] > MAX_STREAM_SECONDS
+            )
+            if worker_hung or stream_abandoned:
+                reason = "hung synthesis" if worker_hung else "abandoned stream"
+                LOGGER.warning(
+                    "Inference lock stuck (%s); force-releasing so the next "
+                    "request can proceed.",
+                    reason,
+                )
+                release_lock_safely()
+
     @asynccontextmanager
     async def lifespan(_app):
         if state["model"] is None:
             state["load_task"] = asyncio.create_task(load_in_background())
-        yield
-        task = state.get("load_task")
-        if task is not None and not task.done():
-            task.cancel()
+        watchdog_task = asyncio.create_task(lock_watchdog())
+        try:
+            yield
+        finally:
+            watchdog_task.cancel()
             with suppress(asyncio.CancelledError):
-                await task
-        if inference_executor is not None:
-            inference_executor.shutdown(wait=True, cancel_futures=True)
+                await watchdog_task
+            task = state.get("load_task")
+            if task is not None and not task.done():
+                task.cancel()
+                with suppress(asyncio.CancelledError):
+                    await task
+            if inference_executor is not None:
+                inference_executor.shutdown(wait=True, cancel_futures=True)
 
     app = FastAPI(title="MLX Breeze TTS 2", lifespan=lifespan)
 
@@ -127,6 +195,9 @@ def create_app(
             raise HTTPException(503, "model is not loaded")
         if not inference_lock.acquire(blocking=False):
             raise HTTPException(409, "another synthesis request is running")
+        lock_token = object()
+        lock_owner["value"] = lock_token
+        stream_started["value"] = time.monotonic()
         temp_path = None
         generator = None
         try:
@@ -179,6 +250,13 @@ def create_app(
                             break
                         yield chunk
                 finally:
+                    # Release the lock synchronously FIRST. If the client
+                    # disconnects mid-stream the task is cancelled, and any
+                    # await below can raise CancelledError before the release
+                    # runs — that is exactly how the lock used to leak. Freeing
+                    # it before the awaits means a cancelled stream can never
+                    # wedge the service (the watchdog is the backstop).
+                    release_lock_safely(lock_token)
                     try:
                         close = getattr(generator, "close", None)
                         if close is not None:
@@ -191,7 +269,6 @@ def create_app(
                             # Return the Metal allocator's free-block cache to
                             # the OS so idle memory does not accumulate.
                             await inference_call(release_worker_memory)
-                            inference_lock.release()
 
             return StreamingResponse(
                 stream_pcm(),
@@ -203,6 +280,9 @@ def create_app(
                 },
             )
         except BaseException:
+            # Release the lock synchronously first (see stream_pcm) so a
+            # cancelled request cannot leak it, then clean up the rest.
+            release_lock_safely(lock_token)
             try:
                 if generator is not None:
                     close = getattr(generator, "close", None)
@@ -213,7 +293,6 @@ def create_app(
                     if temp_path is not None:
                         temp_path.unlink(missing_ok=True)
                 finally:
-                    inference_lock.release()
                     await inference_call(release_worker_memory)
             raise
 

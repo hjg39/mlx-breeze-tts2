@@ -251,3 +251,74 @@ def test_model_that_yields_no_chunks_returns_http_500_without_lock_leak():
 
     assert first.status_code == 500
     assert second.status_code == 500
+
+
+def test_generator_close_failure_does_not_leave_inference_lock_held():
+    from fastapi.testclient import TestClient
+
+    class FailingCloseIterator:
+        def __init__(self):
+            self.first = True
+
+        def __iter__(self):
+            return self
+
+        def __next__(self):
+            if self.first:
+                self.first = False
+                return SimpleNamespace(audio=np.zeros(2, dtype=np.float32))
+            raise StopIteration
+
+        def close(self):
+            raise RuntimeError("generator cleanup failed")
+
+    class Model:
+        def __init__(self):
+            self.calls = 0
+
+        def generate(self, **_kwargs):
+            self.calls += 1
+            if self.calls == 1:
+                return FailingCloseIterator()
+
+            def chunks():
+                yield SimpleNamespace(audio=np.zeros(2, dtype=np.float32))
+
+            return chunks()
+
+    with TestClient(
+        create_app(model=Model(), model_id="fake"), raise_server_exceptions=False
+    ) as client:
+        first = client.post("/v1/audio/speech", data={"text": "first"})
+        second = client.post("/v1/audio/speech", data={"text": "second"})
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+
+
+def test_abandoned_stream_does_not_leave_inference_lock_held():
+    # Regression: a client that disconnects mid-stream used to leak the
+    # inference lock (its cleanup awaits raised CancelledError before the
+    # release ran), so every later request 409'd until a manual restart.
+    from fastapi.testclient import TestClient
+
+    release = threading.Event()
+
+    class SlowModel:
+        def generate(self, **_kwargs):
+            yield SimpleNamespace(audio=np.zeros(2, dtype=np.float32))
+            release.wait(timeout=5)
+            yield SimpleNamespace(audio=np.zeros(2, dtype=np.float32))
+
+    with TestClient(
+        create_app(model=SlowModel(), model_id="fake"), raise_server_exceptions=False
+    ) as client:
+        with client.stream(
+            "POST", "/v1/audio/speech", data={"text": "first"}
+        ) as response:
+            for _ in response.iter_bytes():
+                break  # read one chunk, then abandon the stream
+        second = client.post("/v1/audio/speech", data={"text": "second"})
+        release.set()
+
+    assert second.status_code == 200
